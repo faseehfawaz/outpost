@@ -24,8 +24,9 @@ Edge rules (any one is sufficient to draw an edge; a pair may yield several):
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from pkintel.models import EdgeReason
 

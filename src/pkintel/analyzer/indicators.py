@@ -2,7 +2,6 @@
 Extract exfil indicators from PHP source text using static string analysis.
 """
 import re
-from typing import List
 
 from pkintel.models import Indicator, IndicatorType
 from pkintel.redact import redact, sha256_hex
@@ -14,7 +13,7 @@ DISCORD_WEBHOOK_RE = re.compile(r'(https://discord(?:app)?\.com/api/webhooks/\d+
 EMAIL_RE = re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})')
 URL_RE = re.compile(r'(https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\s\'"]*)?)')
 
-def extract_indicators(text: str, file_path: str) -> List[Indicator]:
+def extract_indicators(text: str, file_path: str) -> list[Indicator]:
     """Extract indicators from PHP source text without executing it."""
     indicators = []
     

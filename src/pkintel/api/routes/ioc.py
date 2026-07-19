@@ -2,7 +2,7 @@
 IOC API endpoints.
 """
 from datetime import datetime
-from typing import List, Optional
+
 from fastapi import APIRouter, Query
 
 from pkintel.db import fetch_all
@@ -10,12 +10,12 @@ from pkintel.models import IOCEntry
 
 router = APIRouter()
 
-@router.get("", response_model=List[IOCEntry])
+@router.get("", response_model=list[IOCEntry])
 async def get_ioc_feed(
-    type: Optional[str] = None,
-    since: Optional[datetime] = None,
+    type: str | None = None,
+    since: datetime | None = None,
     limit: int = Query(100, le=1000)
-) -> List[IOCEntry]:
+) -> list[IOCEntry]:
     """
     Retrieve JSON IOC feed. Redacted by default for public consumption.
     """

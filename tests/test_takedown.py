@@ -1,6 +1,11 @@
-import pytest
-from pkintel.takedown.rdap import registrable_domain, parse_rdap_abuse, parse_rdap_registrar, parse_rdap_asn
-from pkintel.takedown.templates import host_abuse_report, telegram_report, gsb_report, apwg_report
+from pkintel.takedown.rdap import (
+    parse_rdap_abuse,
+    parse_rdap_asn,
+    parse_rdap_registrar,
+    registrable_domain,
+)
+from pkintel.takedown.templates import host_abuse_report
+
 
 def test_registrable_domain():
     assert registrable_domain('login.bank.co.ae') == 'bank.co.ae'

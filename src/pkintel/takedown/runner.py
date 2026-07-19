@@ -5,9 +5,7 @@ from pkintel.config import settings
 from pkintel.db import claim_rows, execute, fetch_all, record_audit
 from pkintel.logging import get_logger
 from pkintel.takedown.rdap import enrich_host
-from pkintel.takedown.templates import (
-    host_abuse_report, registrar_report, telegram_report
-)
+from pkintel.takedown.templates import host_abuse_report, registrar_report, telegram_report
 
 log = get_logger(__name__)
 

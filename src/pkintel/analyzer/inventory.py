@@ -4,13 +4,12 @@ Inventory processing for extracted phishing kits.
 import mimetypes
 import re
 from pathlib import Path
-from typing import List, Tuple
 
 import tlsh
 
-from pkintel.models import InventoryFile, Fingerprint
-from pkintel.redact import sha256_hex
 from pkintel.analyzer.deobfuscate import is_obfuscated
+from pkintel.models import Fingerprint, InventoryFile
+from pkintel.redact import sha256_hex
 
 AUTHOR_RE = re.compile(r'(?i)(?:coded by|created by|author:|by:)\s*([^\r\n]+)')
 
@@ -26,7 +25,7 @@ def normalize_php(text: str) -> str:
     text = re.sub(r'\$[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*', '$VAR', text)
     return text
 
-def process_inventory(files: List[Path], base_dir: Path) -> Tuple[List[InventoryFile], Fingerprint]:
+def process_inventory(files: list[Path], base_dir: Path) -> tuple[list[InventoryFile], Fingerprint]:
     """Analyze files to create inventory and kit fingerprint."""
     inventory = []
     author_strings = set()

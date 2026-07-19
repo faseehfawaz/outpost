@@ -1,7 +1,8 @@
 """
 Feeds API endpoints.
 """
-from typing import List, Dict, Any
+from typing import Any
+
 from fastapi import APIRouter
 
 from pkintel.db import fetch_all, fetch_one
@@ -9,7 +10,7 @@ from pkintel.db import fetch_all, fetch_one
 router = APIRouter()
 
 @router.get("/live")
-async def get_live_feeds() -> List[Dict[str, Any]]:
+async def get_live_feeds() -> list[dict[str, Any]]:
     """
     Get currently live phishing URLs.
     """
@@ -22,7 +23,7 @@ async def get_live_feeds() -> List[Dict[str, Any]]:
     return fetch_all(query)
 
 @router.get("/stats")
-async def get_stats() -> Dict[str, int]:
+async def get_stats() -> dict[str, int]:
     """
     Get pipeline statistics.
     """
@@ -35,7 +36,7 @@ async def get_stats() -> Dict[str, int]:
     return stats
 
 @router.get("/recent")
-async def get_recent_triaged() -> List[Dict[str, Any]]:
+async def get_recent_triaged() -> list[dict[str, Any]]:
     """
     Get most recent 50 triaged URLs.
     """

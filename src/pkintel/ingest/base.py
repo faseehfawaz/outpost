@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import httpx
 
@@ -56,7 +56,7 @@ def polite_fetch(
     client: httpx.Client,
     url: str,
     **kwargs: Any,
-) -> Optional[httpx.Response]:
+) -> httpx.Response | None:
     """Politely GET ``url``, returning the response or ``None`` on any error.
 
     Network errors are swallowed and logged (never raised) so a single dead
@@ -78,7 +78,7 @@ def fetch_first_text(
     client: httpx.Client,
     urls: Iterable[str],
     **kwargs: Any,
-) -> Optional[str]:
+) -> str | None:
     """Try each URL in order; return the body of the first ``200`` response.
 
     Used by adapters that publish the same feed on a primary and a fallback

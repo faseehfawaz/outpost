@@ -1,5 +1,5 @@
-import pytest
 from pkintel.redact import redact, sha256_hex
+
 
 def test_redact():
     assert redact('email', 'foo@bar.com').endswith('bar.com')

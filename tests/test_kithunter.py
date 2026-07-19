@@ -1,7 +1,7 @@
-import pytest
-from pkintel.kithunter.paths import walk_up_dirs, archive_candidates
-from pkintel.kithunter.opendir import is_open_directory, parse_listing, find_archives
 from pkintel.kithunter.collect import looks_like_archive
+from pkintel.kithunter.opendir import find_archives, is_open_directory, parse_listing
+from pkintel.kithunter.paths import archive_candidates, walk_up_dirs
+
 
 def test_walk_up_dirs():
     assert walk_up_dirs('https://host/a/b/login.php') == ['https://host/a/b/', 'https://host/a/', 'https://host/']

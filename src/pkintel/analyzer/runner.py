@@ -5,16 +5,14 @@ import tempfile
 import traceback
 from pathlib import Path
 
-from pkintel.config import settings
-from pkintel.db import claim_rows, execute, connection, record_audit
-from pkintel.logging import get_logger
-from pkintel.storage import get_storage
-from pkintel.models import AnalysisResult
-
-from pkintel.analyzer.safe_extract import extract_archive, UnsafeArchiveError
 from pkintel.analyzer.deobfuscate import deobfuscate
 from pkintel.analyzer.indicators import extract_indicators
 from pkintel.analyzer.inventory import process_inventory
+from pkintel.analyzer.safe_extract import extract_archive
+from pkintel.config import settings
+from pkintel.db import claim_rows, connection, execute
+from pkintel.logging import get_logger
+from pkintel.storage import get_storage
 
 log = get_logger(__name__)
 

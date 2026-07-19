@@ -2,13 +2,13 @@
 FastAPI application for pkintel.
 """
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
-from pkintel.logging import get_logger
 from pkintel.api.routes import actors, feeds, ioc
-from pkintel.db import connection # Import just to show lifecycle connection if needed
+from pkintel.logging import get_logger
 
 log = get_logger(__name__)
 
@@ -51,5 +51,6 @@ async def health_check() -> dict:
 
 # Mount the static frontend last so it serves index.html at root '/'
 from fastapi.staticfiles import StaticFiles
+
 app.mount("/", StaticFiles(directory="/Users/fazee/Documents/PROJECT ONE/frontend", html=True), name="frontend")
 

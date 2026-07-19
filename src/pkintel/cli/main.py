@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import importlib
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import typer
 

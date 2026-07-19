@@ -2,15 +2,16 @@
 """
 Simple script to run analysis on an archive and print the result as JSON.
 """
-import sys
 import json
+import sys
 from pathlib import Path
 
-from pkintel.analyzer.safe_extract import extract_archive
-from pkintel.analyzer.inventory import process_inventory
 from pkintel.analyzer.deobfuscate import deobfuscate
 from pkintel.analyzer.indicators import extract_indicators
+from pkintel.analyzer.inventory import process_inventory
+from pkintel.analyzer.safe_extract import extract_archive
 from pkintel.config import settings
+
 
 def main():
     if len(sys.argv) < 3:

@@ -16,15 +16,14 @@ DB or network until :func:`run_once` is called.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Sequence
-from typing import Any, Optional
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import httpx
 
 from pkintel.config import Settings, settings
 from pkintel.db import connection, record_audit
 from pkintel.http import polite_client
-from pkintel.logging import get_logger
 from pkintel.ingest.base import FeedAdapter
 from pkintel.ingest.ct import CTAdapter
 from pkintel.ingest.github import GitHubListAdapter
@@ -32,6 +31,7 @@ from pkintel.ingest.normalize import canonical_url, host_of, url_hash
 from pkintel.ingest.openphish import OpenPhishAdapter
 from pkintel.ingest.urlhaus import URLhausAdapter
 from pkintel.ingest.urlscan import UrlscanAdapter
+from pkintel.logging import get_logger
 
 log = get_logger(__name__)
 
@@ -49,7 +49,7 @@ _UPSERT_SOURCE_SQL = """
 """
 
 
-def build_adapters(cfg: Optional[Settings] = None) -> list[FeedAdapter]:
+def build_adapters(cfg: Settings | None = None) -> list[FeedAdapter]:
     """Return the list of enabled feed adapters given the config. Pure.
 
     Enablement mirrors the ``settings`` flags: URLhaus/OpenPhish/CT are toggled

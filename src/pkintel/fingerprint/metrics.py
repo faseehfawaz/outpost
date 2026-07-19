@@ -13,7 +13,8 @@ fixture of labelled pairs.
 
 from __future__ import annotations
 
-from typing import Any, Hashable, Iterable, Mapping
+from collections.abc import Hashable, Iterable, Mapping
+from typing import Any
 
 
 def _predicted_same(

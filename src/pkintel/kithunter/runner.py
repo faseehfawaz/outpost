@@ -1,11 +1,10 @@
 """
 Runner for the phishing-kit hunting pipeline.
 """
-from typing import Any
 
 from pkintel.db import claim_rows, execute, record_audit
-from pkintel.logging import get_logger
 from pkintel.kithunter.collect import hunt
+from pkintel.logging import get_logger
 
 log = get_logger(__name__)
 

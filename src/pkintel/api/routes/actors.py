@@ -1,7 +1,7 @@
 """
 Actors API endpoints.
 """
-from typing import List
+
 from fastapi import APIRouter, HTTPException
 
 from pkintel.db import fetch_all, fetch_one
@@ -9,8 +9,8 @@ from pkintel.models import ActorCard
 
 router = APIRouter()
 
-@router.get("", response_model=List[ActorCard])
-async def list_actors() -> List[ActorCard]:
+@router.get("", response_model=list[ActorCard])
+async def list_actors() -> list[ActorCard]:
     """
     List all recorded actors.
     """

@@ -1,7 +1,9 @@
+
 import pytest
-from pathlib import Path
-from pkintel.analyzer.safe_extract import extract_archive, UnsafeArchiveError
+
 from pkintel.analyzer.deobfuscate import deobfuscate, is_obfuscated
+from pkintel.analyzer.safe_extract import UnsafeArchiveError, extract_archive
+
 
 def test_extract_archive_normal(make_zip, tmp_path):
     zip_path = tmp_path / "test.zip"

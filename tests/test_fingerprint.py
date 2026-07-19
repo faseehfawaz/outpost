@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 
+from pkintel.fingerprint.metrics import evaluate
 from pkintel.fingerprint.similarity import (
     KitFingerprint,
     edges_for_pair,
@@ -16,7 +17,6 @@ from pkintel.fingerprint.similarity import (
     shared_exfil,
 )
 from pkintel.fingerprint.unionfind import UnionFind, connected_components
-from pkintel.fingerprint.metrics import evaluate
 from pkintel.models import EdgeReason
 
 

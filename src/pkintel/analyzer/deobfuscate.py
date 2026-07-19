@@ -44,7 +44,7 @@ _EXECUTORS = {
 }
 
 # Decoders we can reproduce as pure byte transforms.
-_DECODERS: dict[str, "callable"] = {}
+_DECODERS: dict[str, callable] = {}
 
 
 def _dec(name: str):
@@ -185,7 +185,7 @@ def _apply_chain(funcs_blob: str, literal: str) -> str | None:
 def _one_round(text: str) -> str:
     """Decode every decodable wrapper chain found in ``text`` once."""
 
-    def _sub(m: "re.Match[str]") -> str:
+    def _sub(m: re.Match[str]) -> str:
         decoded = _apply_chain(m.group("funcs"), m.group("body"))
         return decoded if decoded is not None else m.group(0)
 

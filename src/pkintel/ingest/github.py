@@ -13,7 +13,6 @@ reshuffle) is tolerated and simply skipped.
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Optional
 
 import httpx
 
@@ -31,7 +30,7 @@ class GitHubListAdapter:
     name = "github"
     kind = "github"
 
-    def __init__(self, lists: Optional[Sequence[str]] = None) -> None:
+    def __init__(self, lists: Sequence[str] | None = None) -> None:
         self.lists = list(lists) if lists else list(DEFAULT_LISTS)
 
     def fetch(self, client: httpx.Client) -> Iterable[str]:
