@@ -19,10 +19,12 @@ RUN pip install --upgrade pip && pip install .
 
 COPY db ./db
 
-# Run as non-root for the API/most workers. (The analyzer worker that needs the
-# docker socket is granted access via group membership at deploy time.)
+COPY start.sh ./
+RUN chmod +x start.sh
+
+# Run as non-root for the API/most workers.
 RUN useradd --create-home --uid 10001 pkintel && chown -R pkintel:pkintel /app
 USER pkintel
 
-EXPOSE 8000
-CMD ["uvicorn", "pkintel.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 7860
+CMD ["./start.sh"]
