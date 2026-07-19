@@ -16,8 +16,14 @@ def run_once(worker_id: str = "kithunt-1", limit: int = 10) -> int:
     Claims URLs with kithunt_state='pending', filters for those that are
     confirmed phish and triaged, then executes the collection logic.
     """
-    # Claim rows that are pending
-    urls = claim_rows("urls", "kithunt_state", "pending", "hunting", worker_id, limit)
+    urls = claim_rows(
+        "urls",
+        ready_col="kithunt_state",
+        ready_value="pending",
+        busy_value="hunting",
+        worker_id=worker_id,
+        limit=limit,
+    )
     if not urls:
         return 0
 

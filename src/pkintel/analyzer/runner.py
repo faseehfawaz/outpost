@@ -20,7 +20,14 @@ log = get_logger(__name__)
 
 def run_once(worker_id: str = "analyze-1", limit: int = 5) -> int:
     """Claim and analyze stored kits."""
-    kits = claim_rows("kits", "analysis_state", "stored", "analyzing", worker_id, limit)
+    kits = claim_rows(
+        "kits",
+        ready_col="analysis_state",
+        ready_value="stored",
+        busy_value="analyzing",
+        worker_id=worker_id,
+        limit=limit,
+    )
 
     if not kits:
         return 0

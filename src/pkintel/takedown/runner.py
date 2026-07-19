@@ -92,8 +92,14 @@ def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
                 "Error generating draft takedowns for URL ID %s: %s", url_row.get("id"), e
             )
 
-    # --- Phase 2: Send Drafts ---
-    drafts = claim_rows("takedowns", "status", "draft", "sending", worker_id, limit)
+    drafts = claim_rows(
+        "takedowns",
+        ready_col="status",
+        ready_value="draft",
+        busy_value="sending",
+        worker_id=worker_id,
+        limit=limit,
+    )
     for draft in drafts:
         draft_id = draft["id"]
         contact = draft.get("contact")
