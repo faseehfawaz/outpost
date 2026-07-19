@@ -1,0 +1,35 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# env & secrets
+.env
+*.local
+
+# local quarantine storage — NEVER commit collected kits
+.storage/
+/kits/
+*.zip
+!tests/fixtures/*.zip
+
+# node / next
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# terraform
+terraform/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# os
+.DS_Store
