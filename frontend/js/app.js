@@ -1,5 +1,7 @@
-// pkintel frontend — real data only, no mock fallbacks
-const API_BASE = '/api';
+// Core configuration and API Client
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? '/api'
+    : 'https://outpost-api-faseehfawaz.onrender.com/api';
 
 class API {
     static async get(endpoint) {
