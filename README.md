@@ -24,7 +24,7 @@ Hunt the kit. Dissect the code. Map the actor. File the takedown.
 
 <br/>
 
-[Live Dashboard](https://outpost.heapleap.tech) · [API Reference](https://api-outpost.heapleap.tech/docs) · [Ethics Policy](docs/SCOPE_AND_ETHICS.md)
+[Live Dashboard](https://outpost.heapleap.tech) · [API Reference](https://outpost.heapleap.tech/docs) · [Ethics Policy](docs/SCOPE_AND_ETHICS.md)
 
 </div>
 
@@ -220,17 +220,16 @@ Zero tests make network calls. All external dependencies are mocked.
 
 ## Deployment
 
-Deployed at **`outpost.heapleap.tech`** using:
+Deployed at **`outpost.heapleap.tech`** (and hosted on [Render](https://outpost-27sb.onrender.com)) using:
 
 | Layer | Service | Cost |
 |-------|---------|------|
-| Frontend | Cloudflare Pages | Free |
-| API & Loop | Oracle Cloud Always-Free VM (4 CPU / 24 GB ARM) | Free |
-| Database | PostgreSQL in Docker on the VM | Free |
-| Kit Storage | Cloudflare R2 (10 GB free tier) | Free |
-| DNS & SSL | Cloudflare | Free |
+| Frontend & API | [Render](https://render.com) (Web Service) | Free |
+| Database | [Neon](https://neon.tech) (Serverless PostgreSQL) | Free |
+| Pipeline Workers | [GitHub Actions](https://github.com) (Scheduled Cron Runner) | Free |
+| Kit Storage | [Supabase Storage](https://supabase.com) (S3-compatible bucket) | Free |
 
-See the full deployment guide in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+See the deployment guide in [`docs/DEPLOY.md`](docs/DEPLOY.md) for architectural details.
 
 ---
 
