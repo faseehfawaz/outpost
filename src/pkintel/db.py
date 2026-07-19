@@ -145,7 +145,13 @@ def record_audit(actor: str, action: str, target: str | None = None, **detail: A
 
 def run_migrations(migrations_dir: str | Path | None = None) -> list[str]:
     """Apply every ``*.sql`` migration in order, tracked in ``schema_migrations``."""
-    directory = Path(migrations_dir or Path(__file__).resolve().parents[2] / "db" / "migrations")
+    if migrations_dir:
+        directory = Path(migrations_dir)
+    elif Path("db/migrations").exists():
+        directory = Path("db/migrations")
+    else:
+        directory = Path(__file__).resolve().parents[2] / "db" / "migrations"
+    
     files = sorted(directory.glob("*.sql"))
     applied: list[str] = []
 
