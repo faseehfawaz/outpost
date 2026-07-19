@@ -1,0 +1,48 @@
+name: Outpost Threat Intelligence Pipeline
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Allows you to trigger it manually from GitHub
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .
+
+      - name: Run Pipeline
+        env:
+          PKINTEL_ENV: prod
+          PKINTEL_LOG_LEVEL: INFO
+          PKINTEL_DB_URL: ${{ secrets.PKINTEL_DB_URL }}
+          PKINTEL_R2_ENDPOINT: ${{ secrets.PKINTEL_R2_ENDPOINT }}
+          PKINTEL_R2_BUCKET: kits
+          PKINTEL_R2_ACCESS_KEY_ID: ${{ secrets.PKINTEL_R2_ACCESS_KEY_ID }}
+          PKINTEL_R2_SECRET_ACCESS_KEY: ${{ secrets.PKINTEL_R2_SECRET_ACCESS_KEY }}
+          PKINTEL_TAKEDOWN_DRY_RUN: 'true'
+        run: |
+          # Apply database updates
+          pkintel db migrate
+          pkintel db seed
+          
+          # Run the full pipeline sequence once
+          pkintel run ingest
+          pkintel run triage
+          pkintel run kithunt
+          pkintel run analyze
+          pkintel run cluster
+          pkintel run takedown
