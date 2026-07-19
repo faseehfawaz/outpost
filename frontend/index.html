@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>outpost — Phishing-Kit Intelligence</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">
+            <span class="logo">outpost</span>
+            <span class="sep">/</span>
+            <span class="subtitle">phishing-kit intelligence</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html" class="active">dashboard</a></li>
+            <li><a href="actors.html">actors</a></li>
+            <li><a href="ioc.html">ioc feed</a></li>
+        </ul>
+    </nav>
+
+    <main class="main fade-in" id="dashboard">
+        <div class="stats-row" id="stats-row">
+            <div class="stat-card">
+                <span class="label">URLs Ingested</span>
+                <span class="value" id="stat-total">—</span>
+            </div>
+            <div class="stat-card threat">
+                <span class="label">Active Phish</span>
+                <span class="value" id="stat-phish">—</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">Kits Collected</span>
+                <span class="value" id="stat-kits">—</span>
+            </div>
+            <div class="stat-card accent">
+                <span class="label">Actors Tracked</span>
+                <span class="value" id="stat-actors">—</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">Takedowns Filed</span>
+                <span class="value" id="stat-takedowns">—</span>
+            </div>
+        </div>
+
+        <div class="panels">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span class="live-dot"></span> Live Phishing Feed</h2>
+                    <span class="meta" id="refresh-timer">next refresh in 30s</span>
+                </div>
+                <div class="panel-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Brand</th>
+                                <th>Score</th>
+                                <th>First Seen</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="live-feed-body"></tbody>
+                    </table>
+                    <div class="empty-state" id="live-empty" style="display:none;">
+                        <div class="icon">⏳</div>
+                        <p>No confirmed live phishing sites yet</p>
+                        <p class="hint">pipeline is triaging URLs — results appear here automatically</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Recent Activity</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="timeline" id="recent-timeline"></div>
+                    <div class="empty-state" id="recent-empty" style="display:none;">
+                        <div class="icon">⏳</div>
+                        <p>Waiting for triage results</p>
+                        <p class="hint">the pipeline is processing ingested URLs</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>passive research only — see docs/SCOPE_AND_ETHICS.md — never executes kits, never retains victim data</footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
