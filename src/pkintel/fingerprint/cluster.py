@@ -201,15 +201,10 @@ def _write_edges(cur, kit_ids: set[int], edges) -> None:
         return
     ids = list(kit_ids)
     cur.execute(
-        "SELECT id, kit_a, kit_b, reason FROM kit_edges "
-        "WHERE kit_a = ANY(%s) AND kit_b = ANY(%s)",
+        "SELECT id, kit_a, kit_b, reason FROM kit_edges WHERE kit_a = ANY(%s) AND kit_b = ANY(%s)",
         (ids, ids),
     )
-    stale = [
-        r["id"]
-        for r in cur.fetchall()
-        if (r["kit_a"], r["kit_b"], r["reason"]) not in edges
-    ]
+    stale = [r["id"] for r in cur.fetchall() if (r["kit_a"], r["kit_b"], r["reason"]) not in edges]
     if stale:
         cur.execute("DELETE FROM kit_edges WHERE id = ANY(%s)", (stale,))
 
@@ -223,7 +218,7 @@ def _parse_actor_n(label: str) -> int:
     """Extract N from an ``"Actor #N"`` label, else -1."""
     prefix = "Actor #"
     if label.startswith(prefix):
-        tail = label[len(prefix):]
+        tail = label[len(prefix) :]
         if tail.isdigit():
             return int(tail)
     return -1
@@ -273,9 +268,7 @@ def _materialise_actors(
     for members in comps:
         n_actors += 1
         sig = _component_signature(kits, members)
-        brands = sorted(
-            {kits[m]["brand"] for m in members if kits[m]["brand"]}
-        )
+        brands = sorted({kits[m]["brand"] for m in members if kits[m]["brand"]})
         collected = [kits[m]["collected_at"] for m in members if kits[m]["collected_at"]]
         first_seen = min(collected) if collected else None
         last_seen = max(collected) if collected else None
@@ -326,9 +319,7 @@ def _materialise_actors(
 
     # Delete actors whose component no longer exists (kit_actor cascades).
     if kept_actor_ids:
-        cur.execute(
-            "DELETE FROM actors WHERE id <> ALL(%s)", (list(kept_actor_ids),)
-        )
+        cur.execute("DELETE FROM actors WHERE id <> ALL(%s)", (list(kept_actor_ids),))
     else:
         cur.execute("DELETE FROM actors")
 
@@ -356,15 +347,13 @@ def recluster(worker_id: str = "cluster-1") -> dict[str, int]:
 
         # Aggregate the reasons touching each kit (for kit_actor.edge_reasons).
         reasons_by_kit: dict[int, set[str]] = defaultdict(set)
-        for (a, b, reason) in edges:
+        for a, b, reason in edges:
             reasons_by_kit[a].add(reason)
             reasons_by_kit[b].add(reason)
 
         _write_edges(cur, kit_ids, edges)
 
-        comp_of = connected_components(
-            kit_ids, [(a, b) for (a, b, _reason) in edges]
-        )
+        comp_of = connected_components(kit_ids, [(a, b) for (a, b, _reason) in edges])
         n_actors = _materialise_actors(cur, kits, comp_of, reasons_by_kit)
 
     summary = {"actors": n_actors, "kits": len(kits), "edges": len(edges)}

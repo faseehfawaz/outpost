@@ -9,6 +9,7 @@ from pkintel.models import ActorCard
 
 router = APIRouter()
 
+
 @router.get("", response_model=list[ActorCard])
 async def list_actors() -> list[ActorCard]:
     """
@@ -17,6 +18,7 @@ async def list_actors() -> list[ActorCard]:
     query = "SELECT * FROM actors ORDER BY last_seen DESC"
     rows = fetch_all(query)
     return [ActorCard(**row) for row in rows]
+
 
 @router.get("/{actor_id}", response_model=ActorCard)
 async def get_actor(actor_id: int) -> ActorCard:

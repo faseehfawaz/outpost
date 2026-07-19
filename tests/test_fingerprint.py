@@ -44,10 +44,8 @@ def test_jaccard_accepts_any_iterable():
 # shared_exfil
 # ---------------------------------------------------------------------------
 def test_shared_exfil_matches_type_and_hash():
-    a = [{"type": "telegram_token", "value_hash": "H1"},
-         {"type": "email", "value_hash": "H2"}]
-    b = [{"type": "telegram_token", "value_hash": "H1"},
-         {"type": "email", "value_hash": "OTHER"}]
+    a = [{"type": "telegram_token", "value_hash": "H1"}, {"type": "email", "value_hash": "H2"}]
+    b = [{"type": "telegram_token", "value_hash": "H1"}, {"type": "email", "value_hash": "OTHER"}]
     assert shared_exfil(a, b) == [("telegram_token", "H1")]
 
 
@@ -84,17 +82,41 @@ def test_edge_fires_on_shared_antibot():
 
 
 def test_no_edge_when_antibot_hashes_differ_or_null():
-    assert edges_for_pair(_fp(1, antibot="X"), _fp(2, antibot="Y"),
-                          [], [], jaccard_threshold=0.6, min_shared_files=3) == []
-    assert edges_for_pair(_fp(1, antibot=None), _fp(2, antibot=None),
-                          [], [], jaccard_threshold=0.6, min_shared_files=3) == []
+    assert (
+        edges_for_pair(
+            _fp(1, antibot="X"),
+            _fp(2, antibot="Y"),
+            [],
+            [],
+            jaccard_threshold=0.6,
+            min_shared_files=3,
+        )
+        == []
+    )
+    assert (
+        edges_for_pair(
+            _fp(1, antibot=None),
+            _fp(2, antibot=None),
+            [],
+            [],
+            jaccard_threshold=0.6,
+            min_shared_files=3,
+        )
+        == []
+    )
 
 
 def test_edge_fires_on_high_jaccard_above_threshold():
     files_a = {"s1", "s2", "s3", "s4"}
     files_b = {"s1", "s2", "s3", "s5"}  # 3 shared / 5 union = 0.6
-    edges = edges_for_pair(_fp(1, files=files_a), _fp(2, files=files_b),
-                           [], [], jaccard_threshold=0.6, min_shared_files=3)
+    edges = edges_for_pair(
+        _fp(1, files=files_a),
+        _fp(2, files=files_b),
+        [],
+        [],
+        jaccard_threshold=0.6,
+        min_shared_files=3,
+    )
     jac = [(w, d) for r, w, d in edges if r == EdgeReason.jaccard.value]
     assert jac, "expected a jaccard edge"
     weight, detail = jac[0]
@@ -105,16 +127,23 @@ def test_edge_fires_on_high_jaccard_above_threshold():
 def test_no_jaccard_edge_below_threshold():
     files_a = {"s1", "s2", "s3", "s4"}
     files_b = {"s1", "s2", "x", "y", "z"}  # 2 shared / 7 union ~= 0.286
-    edges = edges_for_pair(_fp(1, files=files_a), _fp(2, files=files_b),
-                           [], [], jaccard_threshold=0.6, min_shared_files=2)
+    edges = edges_for_pair(
+        _fp(1, files=files_a),
+        _fp(2, files=files_b),
+        [],
+        [],
+        jaccard_threshold=0.6,
+        min_shared_files=2,
+    )
     assert EdgeReason.jaccard.value not in {r for r, _w, _d in edges}
 
 
 def test_no_jaccard_edge_when_overlap_below_min_shared_files():
     # Ratio is 1.0 but only two files overlap; min_shared_files=3 blocks it.
     files = {"s1", "s2"}
-    edges = edges_for_pair(_fp(1, files=files), _fp(2, files=files),
-                           [], [], jaccard_threshold=0.6, min_shared_files=3)
+    edges = edges_for_pair(
+        _fp(1, files=files), _fp(2, files=files), [], [], jaccard_threshold=0.6, min_shared_files=3
+    )
     assert EdgeReason.jaccard.value not in {r for r, _w, _d in edges}
 
 
@@ -144,8 +173,7 @@ def test_no_edge_between_unrelated_kits():
     b = _fp(2, files={"b1", "b2"}, antibot="XYZ", authors=["bob"])
     ind_a = [{"type": "email", "value_hash": "Ha"}]
     ind_b = [{"type": "email", "value_hash": "Hb"}]
-    assert edges_for_pair(a, b, ind_a, ind_b,
-                          jaccard_threshold=0.6, min_shared_files=1) == []
+    assert edges_for_pair(a, b, ind_a, ind_b, jaccard_threshold=0.6, min_shared_files=1) == []
 
 
 # ---------------------------------------------------------------------------
@@ -213,9 +241,9 @@ def test_evaluate_with_components_mapping():
     # Predicted components: {1,2} together, 3 separate.
     components = {1: 1, 2: 1, 3: 3}
     labeled = [
-        (1, 2, True),   # TP  (truly same, predicted same)
+        (1, 2, True),  # TP  (truly same, predicted same)
         (1, 3, False),  # TN  (truly diff, predicted diff)
-        (2, 3, True),   # FN  (truly same, predicted diff)
+        (2, 3, True),  # FN  (truly same, predicted diff)
     ]
     m = evaluate(labeled, components)
     assert (m["tp"], m["fp"], m["fn"], m["tn"]) == (1, 0, 1, 1)
@@ -226,9 +254,9 @@ def test_evaluate_with_components_mapping():
 
 def test_evaluate_with_explicit_predictions():
     labeled = [
-        ("k1", "k2", True, True),    # TP
-        ("k1", "k3", False, True),   # FP
-        ("k2", "k3", True, False),   # FN
+        ("k1", "k2", True, True),  # TP
+        ("k1", "k3", False, True),  # FP
+        ("k2", "k3", True, False),  # FN
         ("k4", "k5", False, False),  # TN
     ]
     m = evaluate(labeled)

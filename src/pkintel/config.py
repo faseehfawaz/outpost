@@ -65,8 +65,15 @@ class Settings(BaseSettings):
     kithunt_max_archive_bytes: int = Field(default=200 * 1024 * 1024)  # 200 MB
     kithunt_archive_names: list[str] = Field(
         default_factory=lambda: [
-            "kit.zip", "login.zip", "index.zip", "www.zip", "backup.zip",
-            "mail.zip", "office.zip", "next.zip", "auth.zip",
+            "kit.zip",
+            "login.zip",
+            "index.zip",
+            "www.zip",
+            "backup.zip",
+            "mail.zip",
+            "office.zip",
+            "next.zip",
+            "auth.zip",
         ]
     )
     kithunt_log_names: list[str] = Field(
@@ -92,9 +99,20 @@ class Settings(BaseSettings):
     # ---- brands we prioritise (UAE-first) --------------------------------
     priority_brands: list[str] = Field(
         default_factory=lambda: [
-            "Emirates NBD", "Emirates Islamic", "ADCB", "FAB", "Mashreq",
-            "RTA", "Etisalat", "du", "Dubai Police", "ADNOC", "DEWA",
-            "Emirates", "Emirates Post", "UAE PASS",
+            "Emirates NBD",
+            "Emirates Islamic",
+            "ADCB",
+            "FAB",
+            "Mashreq",
+            "RTA",
+            "Etisalat",
+            "du",
+            "Dubai Police",
+            "ADNOC",
+            "DEWA",
+            "Emirates",
+            "Emirates Post",
+            "UAE PASS",
         ]
     )
 

@@ -1,6 +1,7 @@
 """
 IOC API endpoints.
 """
+
 from datetime import datetime
 
 from fastapi import APIRouter, Query
@@ -10,11 +11,10 @@ from pkintel.models import IOCEntry
 
 router = APIRouter()
 
+
 @router.get("", response_model=list[IOCEntry])
 async def get_ioc_feed(
-    type: str | None = None,
-    since: datetime | None = None,
-    limit: int = Query(100, le=1000)
+    type: str | None = None, since: datetime | None = None, limit: int = Query(100, le=1000)
 ) -> list[IOCEntry]:
     """
     Retrieve JSON IOC feed. Redacted by default for public consumption.
@@ -34,7 +34,7 @@ async def get_ioc_feed(
         WHERE 1=1
     """
     params: list = []
-    
+
     if type:
         query += " AND i.type = %s"
         params.append(type)
@@ -42,9 +42,9 @@ async def get_ioc_feed(
         # Assuming indicators table has a created_at column
         query += " AND i.created_at >= %s"
         params.append(since)
-        
+
     query += " ORDER BY i.id DESC LIMIT %s"
     params.append(limit)
-    
+
     rows = fetch_all(query, tuple(params))
     return [IOCEntry(**row) for row in rows]

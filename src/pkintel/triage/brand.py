@@ -15,7 +15,14 @@ from bs4 import BeautifulSoup
 # Generic global phishing targets -> case-insensitive regex alternatives.
 # Checked only after the caller's priority (UAE) brands.
 GENERIC_BRAND_PATTERNS: dict[str, list[str]] = {
-    "Microsoft": [r"microsoft", r"office\W{0,3}365", r"\bo365\b", r"outlook", r"onedrive", r"sharepoint"],
+    "Microsoft": [
+        r"microsoft",
+        r"office\W{0,3}365",
+        r"\bo365\b",
+        r"outlook",
+        r"onedrive",
+        r"sharepoint",
+    ],
     "Apple": [r"\bapple\b", r"icloud", r"apple\W{0,3}id"],
     "PayPal": [r"paypal"],
     "Google": [r"\bgoogle\b", r"gmail"],
@@ -32,14 +39,35 @@ GENERIC_BRAND_PATTERNS: dict[str, list[str]] = {
 # Phrases whose presence raises suspicion. Density (count of distinct hits) feeds
 # the score; individually weak, collectively meaningful.
 PHISH_KEYWORDS: list[str] = [
-    "verify your account", "verify your identity", "confirm your identity",
-    "confirm your password", "update your account", "update your information",
-    "unusual activity", "suspicious activity", "account suspended",
-    "account locked", "account has been limited", "reactivate", "revalidate",
-    "sign in", "log in", "login", "secure login", "online banking",
-    "internet banking", "net banking", "one-time password", "otp code",
-    "card number", "expiry date", "security code", "pin code",
-    "session expired", "click here to verify", "confirm now",
+    "verify your account",
+    "verify your identity",
+    "confirm your identity",
+    "confirm your password",
+    "update your account",
+    "update your information",
+    "unusual activity",
+    "suspicious activity",
+    "account suspended",
+    "account locked",
+    "account has been limited",
+    "reactivate",
+    "revalidate",
+    "sign in",
+    "log in",
+    "login",
+    "secure login",
+    "online banking",
+    "internet banking",
+    "net banking",
+    "one-time password",
+    "otp code",
+    "card number",
+    "expiry date",
+    "security code",
+    "pin code",
+    "session expired",
+    "click here to verify",
+    "confirm now",
 ]
 
 

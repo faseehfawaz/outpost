@@ -36,9 +36,7 @@ def parse_urlhaus_csv(text: str) -> Iterator[str]:
     Comment lines (``#`` prefix, after optional whitespace) are skipped, which
     covers the header row. Quoting is handled by :mod:`csv`.
     """
-    data_rows = (
-        line for line in text.splitlines() if not line.lstrip().startswith("#")
-    )
+    data_rows = (line for line in text.splitlines() if not line.lstrip().startswith("#"))
     for row in csv.reader(data_rows):
         if len(row) > _URL_COLUMN:
             value = row[_URL_COLUMN].strip()

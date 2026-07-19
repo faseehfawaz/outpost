@@ -77,7 +77,7 @@ def evaluate(
         "fp": fp,
         "fn": fn,
         "tn": tn,
-        "support": tp + fn,           # number of true "same actor" pairs
+        "support": tp + fn,  # number of true "same actor" pairs
         "predicted_positive": tp + fp,
         "precision": round(precision, 4),
         "recall": round(recall, 4),

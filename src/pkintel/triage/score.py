@@ -32,11 +32,11 @@ WEIGHTS: dict[str, int] = {
     "offdomain_password_post": 45,
     "password_form": 12,
     "brand": 15,
-    "priority_brand": 8,        # extra, on top of "brand"
+    "priority_brand": 8,  # extra, on top of "brand"
     "favicon_known": 20,
-    "favicon_brand_match": 5,   # extra, when favicon brand == detected brand
+    "favicon_brand_match": 5,  # extra, when favicon brand == detected brand
     "keyword_each": 3,
-    "keyword_cap_hits": 6,      # count no more than this many keyword hits
+    "keyword_cap_hits": 6,  # count no more than this many keyword hits
     "logo_match": 15,
     "live": 5,
 }

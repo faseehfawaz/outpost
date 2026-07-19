@@ -46,8 +46,6 @@ class GitHubListAdapter:
             if resp.status_code != 200:
                 from pkintel.logging import get_logger
 
-                get_logger(__name__).warning(
-                    "github_http_status", url=url, status=resp.status_code
-                )
+                get_logger(__name__).warning("github_http_status", url=url, status=resp.status_code)
                 continue
             yield from parse_url_lines(resp.text)

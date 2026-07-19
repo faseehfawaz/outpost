@@ -40,11 +40,12 @@ def test_favicon_mmh3_differs_for_different_bytes():
 # phash helper
 # --------------------------------------------------------------------------- #
 
+
 def test_hamming_distance_and_missing_sentinel():
     assert hamming("00000000", "00000000") == 0
     assert hamming("0000000f", "00000000") == 4  # 0xf == 1111 -> 4 bits
     assert hamming(None, "00000000") == 64
-    assert hamming("ff", "0000") == 64           # length mismatch -> sentinel
+    assert hamming("ff", "0000") == 64  # length mismatch -> sentinel
 
 
 # --------------------------------------------------------------------------- #
@@ -126,13 +127,15 @@ def test_registrable_domain():
 # brand
 # --------------------------------------------------------------------------- #
 
+
 def test_priority_brand_wins_over_generic():
     html = (
         "<html><head><title>Emirates NBD Online Banking</title></head>"
         "<body>Sign in with your Microsoft account</body></html>"
     )
-    brand, reasons = detect_brand(html, "http://enbd-secure.example/login",
-                                  ["Emirates NBD", "Emirates"])
+    brand, reasons = detect_brand(
+        html, "http://enbd-secure.example/login", ["Emirates NBD", "Emirates"]
+    )
     assert brand == "Emirates NBD"
     assert reasons
 
@@ -145,8 +148,9 @@ def test_generic_brand_detected_when_no_priority_match():
 
 
 def test_no_brand_returns_none():
-    brand, reasons = detect_brand("<html><body>hello world</body></html>",
-                                  "http://example.com/", ["ADCB"])
+    brand, reasons = detect_brand(
+        "<html><body>hello world</body></html>", "http://example.com/", ["ADCB"]
+    )
     assert brand is None
     assert reasons == []
 
@@ -164,6 +168,7 @@ def test_keyword_hits_counts_distinct_phrases():
 # --------------------------------------------------------------------------- #
 # score
 # --------------------------------------------------------------------------- #
+
 
 def test_score_is_monotonic_in_signals():
     off_form = FormSignal(has_password_field=True, posts_offdomain=True, suspicious=True)
@@ -186,17 +191,28 @@ def test_offdomain_form_scores_higher_than_same_domain_login():
 def test_score_clamped_to_100():
     off = FormSignal(has_password_field=True, posts_offdomain=True, suspicious=True)
     result = score(
-        is_live=True, brand="Emirates NBD", brand_is_priority=True,
-        favicon_brand="Emirates NBD", form=off, keyword_hits=10,
-        logo_match=True, threshold=50,
+        is_live=True,
+        brand="Emirates NBD",
+        brand_is_priority=True,
+        favicon_brand="Emirates NBD",
+        form=off,
+        keyword_hits=10,
+        logo_match=True,
+        threshold=50,
     )
     assert result.score == 100
 
 
 def test_threshold_behaviour():
     off = FormSignal(has_password_field=True, posts_offdomain=True, suspicious=True)
-    strong = score(is_live=True, brand="Emirates NBD", brand_is_priority=True,
-                   form=off, keyword_hits=5, threshold=50)
+    strong = score(
+        is_live=True,
+        brand="Emirates NBD",
+        brand_is_priority=True,
+        form=off,
+        keyword_hits=5,
+        threshold=50,
+    )
     assert strong.is_phish is True
     assert strong.score >= 50
 

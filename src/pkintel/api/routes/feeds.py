@@ -1,6 +1,7 @@
 """
 Feeds API endpoints.
 """
+
 from typing import Any
 
 from fastapi import APIRouter
@@ -8,6 +9,7 @@ from fastapi import APIRouter
 from pkintel.db import fetch_all, fetch_one
 
 router = APIRouter()
+
 
 @router.get("/live")
 async def get_live_feeds() -> list[dict[str, Any]]:
@@ -22,6 +24,7 @@ async def get_live_feeds() -> list[dict[str, Any]]:
     """
     return fetch_all(query)
 
+
 @router.get("/stats")
 async def get_stats() -> dict[str, int]:
     """
@@ -32,8 +35,11 @@ async def get_stats() -> dict[str, int]:
     stats["phish_count"] = fetch_one("SELECT count(*) as c FROM urls WHERE is_phish = true")["c"]
     stats["kits_collected"] = fetch_one("SELECT count(*) as c FROM kits")["c"]
     stats["actors_identified"] = fetch_one("SELECT count(*) as c FROM actors")["c"]
-    stats["takedowns_sent"] = fetch_one("SELECT count(*) as c FROM takedowns WHERE status = 'sent'")["c"]
+    stats["takedowns_sent"] = fetch_one(
+        "SELECT count(*) as c FROM takedowns WHERE status = 'sent'"
+    )["c"]
     return stats
+
 
 @router.get("/recent")
 async def get_recent_triaged() -> list[dict[str, Any]]:

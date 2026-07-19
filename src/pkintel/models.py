@@ -95,7 +95,7 @@ class ActorCard(BaseModel):
 
 class IOCEntry(BaseModel):
     kind: str
-    value: str          # redacted public value or hash
+    value: str  # redacted public value or hash
     kit_sha256: str
     actor_label: str | None = None
     brand: str | None = None

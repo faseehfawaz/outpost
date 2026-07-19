@@ -142,9 +142,7 @@ def _download_archive(client: httpx.Client, url: str) -> bytes | None:
         return None
 
 
-def _try_collect_archive(
-    client: httpx.Client, url_row: dict, archive_url: str
-) -> str | None:
+def _try_collect_archive(client: httpx.Client, url_row: dict, archive_url: str) -> str | None:
     """Download, validate, quarantine and record one candidate archive.
 
     Returns the archive sha256 on success, else None. On success the bytes are

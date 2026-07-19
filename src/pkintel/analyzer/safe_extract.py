@@ -131,9 +131,7 @@ def safe_members(
             continue
         file_count += 1
         if file_count > max_files:
-            raise UnsafeArchiveError(
-                f"file-count cap exceeded (> {max_files}); refusing archive"
-            )
+            raise UnsafeArchiveError(f"file-count cap exceeded (> {max_files}); refusing archive")
         total_bytes += max(size, 0)
         if total_bytes > max_uncompressed_bytes:
             raise UnsafeArchiveError(

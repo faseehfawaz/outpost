@@ -22,8 +22,8 @@ log = get_logger(__name__)
 
 # Hard caps: read at most this much of a body. Triage needs the <head>/forms,
 # not megabytes of payload.
-_MAX_HTML_BYTES = 2 * 1024 * 1024      # 2 MiB
-_MAX_FAVICON_BYTES = 256 * 1024        # 256 KiB
+_MAX_HTML_BYTES = 2 * 1024 * 1024  # 2 MiB
+_MAX_FAVICON_BYTES = 256 * 1024  # 256 KiB
 # Short per-request timeout: unreachable candidates should fail fast.
 _FETCH_TIMEOUT_S = 10.0
 
@@ -80,8 +80,12 @@ def fetch_page(client: httpx.Client, url: str) -> PageFetch:
     except Exception as exc:
         log.info("triage_fetch_error", url=url, error=str(exc))
         return PageFetch(
-            status=None, final_url=url, html=None, is_live=False,
-            favicon_bytes=None, error=str(exc),
+            status=None,
+            final_url=url,
+            html=None,
+            is_live=False,
+            favicon_bytes=None,
+            error=str(exc),
         )
 
     status = resp.status_code
@@ -91,6 +95,10 @@ def fetch_page(client: httpx.Client, url: str) -> PageFetch:
     favicon_bytes = _fetch_favicon(client, html, final_url) if is_live else None
 
     return PageFetch(
-        status=status, final_url=final_url, html=html,
-        is_live=is_live, favicon_bytes=favicon_bytes, error=None,
+        status=status,
+        final_url=final_url,
+        html=html,
+        is_live=is_live,
+        favicon_bytes=favicon_bytes,
+        error=None,
     )

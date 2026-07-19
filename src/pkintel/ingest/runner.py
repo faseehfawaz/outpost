@@ -70,9 +70,7 @@ def build_adapters(cfg: Settings | None = None) -> list[FeedAdapter]:
     return adapters
 
 
-def _normalize_candidates(
-    raw_urls: Iterable[str], cap: int
-) -> list[tuple[str, str, str]]:
+def _normalize_candidates(raw_urls: Iterable[str], cap: int) -> list[tuple[str, str, str]]:
     """Canonicalise + dedupe raw URLs into ``(canonical, url_hash, host)`` rows.
 
     Pure. Stops after ``cap`` *valid, distinct* candidates. Malformed and
@@ -125,9 +123,7 @@ def _insert_candidates(
     return new, seen
 
 
-def _poll_adapter(
-    client: httpx.Client, adapter: FeedAdapter, cap: int
-) -> tuple[int, int]:
+def _poll_adapter(client: httpx.Client, adapter: FeedAdapter, cap: int) -> tuple[int, int]:
     """Poll one adapter end-to-end; return ``(new, seen)`` counts.
 
     The network fetch happens *outside* any DB transaction so we never hold a
@@ -141,9 +137,7 @@ def _poll_adapter(
 
     with connection() as conn, conn.cursor() as cur:
         new, seen = _insert_candidates(cur, source_id, candidates)
-        cur.execute(
-            "UPDATE sources SET last_polled_at = now() WHERE id = %s", (source_id,)
-        )
+        cur.execute("UPDATE sources SET last_polled_at = now() WHERE id = %s", (source_id,))
 
     record_audit("ingest", "poll", adapter.name, new=new, seen=seen)
     return new, seen

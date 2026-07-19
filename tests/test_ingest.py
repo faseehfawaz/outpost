@@ -170,13 +170,7 @@ def test_parse_urlhaus_csv_empty_and_comment_only():
 # --------------------------------------------------------------------------- #
 # Line-list parsing (OpenPhish / GitHub)
 # --------------------------------------------------------------------------- #
-LINES_SAMPLE = (
-    "http://x.example/a\n"
-    "# a comment line\n"
-    "   \n"
-    "  https://y.example/b  \n"
-    "z.example/c\n"
-)
+LINES_SAMPLE = "http://x.example/a\n# a comment line\n   \n  https://y.example/b  \nz.example/c\n"
 
 
 def test_parse_url_lines():
@@ -195,9 +189,9 @@ def test_parse_urlscan_json():
         "results": [
             {"page": {"url": "http://p1.example/"}},
             {"page": {"url": "https://p2.example/x"}},
-            {"page": {}},           # no url
-            {"nope": 1},            # no page
-            "garbage",              # not a dict
+            {"page": {}},  # no url
+            {"nope": 1},  # no page
+            "garbage",  # not a dict
         ]
     }
     assert list(parse_urlscan_json(payload)) == [
@@ -218,22 +212,20 @@ def test_parse_urlscan_json_tolerates_junk():
 def test_brand_slug_and_query_url():
     assert brand_slug("Emirates NBD") == "emiratesnbd"
     assert brand_slug("du") == "du"
-    assert crtsh_query_url("Emirates NBD") == (
-        "https://crt.sh/?q=%25emiratesnbd%25&output=json"
-    )
+    assert crtsh_query_url("Emirates NBD") == ("https://crt.sh/?q=%25emiratesnbd%25&output=json")
 
 
 @pytest.mark.parametrize(
     "host, expected",
     [
-        ("emiratesnbd-login.com", True),      # combosquat
-        ("emirates-nbd.net", True),           # hyphenated squat
-        ("secure-emiratesnbd.xyz", True),     # prefixed squat
-        ("emiratesnbd.com", False),           # the brand's own domain
-        ("www.emiratesnbd.com", False),       # subdomain of the brand
-        ("login.emiratesnbd.com", False),     # subdomain of the brand family
-        ("example.com", False),               # unrelated
-        ("emiratesnbd", False),               # single label, no TLD
+        ("emiratesnbd-login.com", True),  # combosquat
+        ("emirates-nbd.net", True),  # hyphenated squat
+        ("secure-emiratesnbd.xyz", True),  # prefixed squat
+        ("emiratesnbd.com", False),  # the brand's own domain
+        ("www.emiratesnbd.com", False),  # subdomain of the brand
+        ("login.emiratesnbd.com", False),  # subdomain of the brand family
+        ("example.com", False),  # unrelated
+        ("emiratesnbd", False),  # single label, no TLD
     ],
 )
 def test_looks_like_lookalike(host, expected):
@@ -299,10 +291,10 @@ def test_build_adapters_respects_flags():
 def test_normalize_candidates_dedupes_and_caps():
     raws = [
         "HTTP://Example.com:80/",
-        "http://example.com",           # dup of the first
+        "http://example.com",  # dup of the first
         "http://example.com/a",
-        "",                             # unpar-seable -> skipped
-        "http://example.com/a#frag",    # dup of /a after fragment strip
+        "",  # unpar-seable -> skipped
+        "http://example.com/a#frag",  # dup of /a after fragment strip
     ]
     rows = _normalize_candidates(raws, cap=10)
     canon = [c for c, _h, _host in rows]

@@ -151,7 +151,7 @@ def run_migrations(migrations_dir: str | Path | None = None) -> list[str]:
         directory = Path("db/migrations")
     else:
         directory = Path(__file__).resolve().parents[2] / "db" / "migrations"
-    
+
     files = sorted(directory.glob("*.sql"))
     applied: list[str] = []
 

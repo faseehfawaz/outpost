@@ -48,9 +48,7 @@ _UPDATE_TRIAGED = """
     WHERE id = %(id)s
 """
 
-_UPDATE_ERROR = (
-    "UPDATE urls SET triage_state='error', locked_by=NULL, locked_at=NULL WHERE id=%s"
-)
+_UPDATE_ERROR = "UPDATE urls SET triage_state='error', locked_by=NULL, locked_at=NULL WHERE id=%s"
 
 
 def _process_one(
@@ -149,9 +147,13 @@ def run_once(worker_id: str = "triage-1", limit: int = 50) -> int:
                 },
             )
             record_audit(
-                _ACTOR, "triaged", target=str(url_id),
-                url=url, is_phish=result.is_phish,
-                score=result.score, brand=result.brand,
+                _ACTOR,
+                "triaged",
+                target=str(url_id),
+                url=url,
+                is_phish=result.is_phish,
+                score=result.score,
+                brand=result.brand,
             )
             processed += 1
     finally:
@@ -159,6 +161,8 @@ def run_once(worker_id: str = "triage-1", limit: int = 50) -> int:
 
     log.info(
         "triage_run_complete",
-        worker=worker_id, claimed=len(rows), processed=processed,
+        worker=worker_id,
+        claimed=len(rows),
+        processed=processed,
     )
     return processed

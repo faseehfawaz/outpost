@@ -111,9 +111,7 @@ def jaccard(set_a: Iterable[Any], set_b: Iterable[Any]) -> float:
     return len(a & b) / len(union)
 
 
-def shared_exfil(
-    indicators_a: Iterable[Any], indicators_b: Iterable[Any]
-) -> list[tuple[str, str]]:
+def shared_exfil(indicators_a: Iterable[Any], indicators_b: Iterable[Any]) -> list[tuple[str, str]]:
     """Return the sorted ``(type, value_hash)`` pairs both kits report to.
 
     An exfil channel two kits have in common is the single most reliable link
@@ -170,9 +168,7 @@ def edges_for_pair(
     ab_a = _get(kit_a_fp, "antibot_hash")
     ab_b = _get(kit_b_fp, "antibot_hash")
     if ab_a and ab_b and ab_a == ab_b:
-        edges.append(
-            (EdgeReason.shared_antibot.value, 1.0, {"antibot_hash": str(ab_a)})
-        )
+        edges.append((EdgeReason.shared_antibot.value, 1.0, {"antibot_hash": str(ab_a)}))
 
     # 4. Shared author / handle string.
     common_authors = _as_author_set(kit_a_fp) & _as_author_set(kit_b_fp)
