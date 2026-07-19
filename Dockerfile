@@ -8,9 +8,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# System deps: docker CLI (analyzer worker launches sandbox containers).
+# System deps: docker CLI + C++ compiler to build python-tlsh
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates docker.io \
+    && apt-get install -y --no-install-recommends ca-certificates docker.io build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
