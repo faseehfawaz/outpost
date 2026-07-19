@@ -1,0 +1,84 @@
+# Single-node stack. `docker compose up -d db` is enough to develop against.
+#
+# The analyzer is deliberately NOT a long-running service here — it is launched
+# per-kit as a one-shot, locked-down container by the analyzer worker (see
+# src/pkintel/analyzer/runner.py). Its image is built here so it's ready.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pkintel
+      POSTGRES_PASSWORD: pkintel
+      POSTGRES_DB: pkintel
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pkintel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Build the analyzer sandbox image (one-shot; not started as a service).
+  analyzer-image:
+    build:
+      context: .
+      dockerfile: analyzer_container/Dockerfile
+    image: pkintel-analyzer:latest
+    command: ["true"]
+    restart: "no"
+    profiles: ["build-only"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pkintel:latest
+    command: ["uvicorn", "pkintel.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      PKINTEL_DB_URL: postgresql://pkintel:pkintel@db:5432/pkintel
+      PKINTEL_LOG_JSON: "true"
+    ports:
+      - "8080:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    image: pkintel:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # The analyzer worker needs the Docker socket to launch sandbox containers.
+    # Everything else (ingest/triage/kithunt/fingerprint/takedown) does not.
+    command: ["pkintel", "run", "all", "--loop"]
+    environment:
+      PKINTEL_DB_URL: postgresql://pkintel:pkintel@db:5432/pkintel
+      PKINTEL_LOG_JSON: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.storage:/app/.storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./ops/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    profiles: ["observability"]
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3001:3000"
+    profiles: ["observability"]
+
+volumes:
+  pgdata:
