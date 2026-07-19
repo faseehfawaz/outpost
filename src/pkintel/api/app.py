@@ -52,10 +52,16 @@ async def health_check() -> dict:
 
 
 # Mount the static frontend last so it serves index.html at root '/'
+from pathlib import Path
+
 from fastapi.staticfiles import StaticFiles
 
-app.mount(
-    "/",
-    StaticFiles(directory="/Users/fazee/Documents/PROJECT ONE/frontend", html=True),
-    name="frontend",
-)
+# Check common locations: Docker container (/app/frontend), then project root
+_frontend_candidates = [
+    Path("/app/frontend"),
+    Path(__file__).resolve().parents[3] / "frontend",
+]
+for _fe_dir in _frontend_candidates:
+    if _fe_dir.is_dir():
+        app.mount("/", StaticFiles(directory=str(_fe_dir), html=True), name="frontend")
+        break

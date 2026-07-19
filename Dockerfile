@@ -18,6 +18,7 @@ COPY src ./src
 RUN pip install --upgrade pip && pip install .
 
 COPY db ./db
+COPY frontend ./frontend
 
 COPY start.sh ./
 RUN chmod +x start.sh
