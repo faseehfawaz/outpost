@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE takedowns ADD COLUMN locked_by TEXT;
+ALTER TABLE takedowns ADD COLUMN locked_at TIMESTAMPTZ;
+
+COMMIT;
