@@ -113,6 +113,33 @@ def _where(pattern: str, title: str, url: str) -> str:
     return "body"
 
 
+# Official domains for each brand to prevent false positives on legitimate sites.
+OFFICIAL_DOMAINS: dict[str, list[str]] = {
+    "ADCB": ["adcb.com", "adcbcareers.com"],
+    "DEWA": ["dewa.gov.ae"],
+    "Microsoft": ["microsoft.com", "office.com", "live.com", "outlook.com"],
+    "Apple": ["apple.com", "icloud.com"],
+    "PayPal": ["paypal.com"],
+    "Google": ["google.com", "gmail.com", "youtube.com"],
+    "Amazon": ["amazon.com", "aws.amazon.com"],
+    "Meta": ["facebook.com", "instagram.com", "meta.com", "whatsapp.com"],
+    "LinkedIn": ["linkedin.com"],
+    "Coinbase": ["coinbase.com"],
+    "Binance": ["binance.com"],
+}
+
+
+def is_official_domain(url: str, brand: str) -> bool:
+    """Check if the URL belongs to an official domain for the given brand."""
+    from urllib.parse import urlsplit
+
+    from pkintel.triage.forms import registrable_domain
+
+    domain = registrable_domain(urlsplit(url).netloc)
+    allowed = OFFICIAL_DOMAINS.get(brand, [])
+    return any(domain == ok or domain.endswith("." + ok) for ok in allowed)
+
+
 def detect_brand(
     html: str | None,
     url: str,
@@ -132,12 +159,16 @@ def detect_brand(
     for brand in priority_brands or []:
         pattern = _name_to_pattern(brand)
         if re.search(pattern, haystack, re.IGNORECASE):
+            if is_official_domain(url, brand):
+                continue
             reasons.append(f"priority_brand:{brand} in {_where(pattern, title, url_l)}")
             return brand, reasons
 
     for brand, patterns in GENERIC_BRAND_PATTERNS.items():
         for pattern in patterns:
             if re.search(pattern, haystack, re.IGNORECASE):
+                if is_official_domain(url, brand):
+                    continue
                 reasons.append(f"brand:{brand} in {_where(pattern, title, url_l)}")
                 return brand, reasons
 
