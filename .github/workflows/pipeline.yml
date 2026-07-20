@@ -2,8 +2,8 @@ name: Outpost Threat Intelligence Pipeline
 
 on:
   schedule:
-    # Run every 30 minutes
-    - cron: '*/30 * * * *'
+    # Run every 14 minutes to keep Render container warm and process feeds faster
+    - cron: '*/14 * * * *'
   workflow_dispatch: # Allows you to trigger it manually from GitHub
 
 jobs:
@@ -24,6 +24,10 @@ jobs:
           pip install --upgrade pip
           pip install .
 
+      - name: Keep-Alive Render API
+        run: |
+          curl -sI https://outpost-27sb.onrender.com/health || true
+
       - name: Run Pipeline
         env:
           PKINTEL_ENV: prod
@@ -34,6 +38,7 @@ jobs:
           PKINTEL_R2_ACCESS_KEY_ID: ${{ secrets.PKINTEL_R2_ACCESS_KEY_ID }}
           PKINTEL_R2_SECRET_ACCESS_KEY: ${{ secrets.PKINTEL_R2_SECRET_ACCESS_KEY }}
           PKINTEL_TAKEDOWN_DRY_RUN: 'true'
+          PKINTEL_TRIAGE_PHISH_THRESHOLD: '35'
         run: |
           # Apply database updates
           pkintel db migrate
