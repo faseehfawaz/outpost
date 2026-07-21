@@ -94,7 +94,7 @@ class Settings(BaseSettings):
     cluster_min_shared_files: int = Field(default=3)
 
     # ---- triage scoring ---------------------------------------------------
-    triage_phish_threshold: int = Field(default=50, description="0-100 score to flag as phish")
+    triage_phish_threshold: int = Field(default=35, description="0-100 score to flag as phish")
 
     # ---- brands we prioritise (UAE-first) --------------------------------
     priority_brands: list[str] = Field(

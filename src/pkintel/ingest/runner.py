@@ -29,6 +29,9 @@ from pkintel.ingest.ct import CTAdapter
 from pkintel.ingest.github import GitHubListAdapter
 from pkintel.ingest.normalize import canonical_url, host_of, url_hash
 from pkintel.ingest.openphish import OpenPhishAdapter
+from pkintel.ingest.phishdb import PhishingDatabaseAdapter
+from pkintel.ingest.phishstats import PhishStatsAdapter
+from pkintel.ingest.threatfox import ThreatFoxAdapter
 from pkintel.ingest.urlhaus import URLhausAdapter
 from pkintel.ingest.urlscan import UrlscanAdapter
 from pkintel.logging import get_logger
@@ -67,6 +70,10 @@ def build_adapters(cfg: Settings | None = None) -> list[FeedAdapter]:
     if cfg.ct_enabled:
         adapters.append(CTAdapter(cfg.priority_brands))
     adapters.append(GitHubListAdapter())
+    # New high-volume community feeds
+    adapters.append(PhishStatsAdapter())
+    adapters.append(PhishingDatabaseAdapter())
+    adapters.append(ThreatFoxAdapter())
     return adapters
 
 
@@ -143,7 +150,7 @@ def _poll_adapter(client: httpx.Client, adapter: FeedAdapter, cap: int) -> tuple
     return new, seen
 
 
-def run_once(worker_id: str = "ingest-1", limit: int = 500) -> int:
+def run_once(worker_id: str = "ingest-1", limit: int = 2000) -> int:
     """Run one ingest cycle across all enabled feeds; return total new URLs.
 
     ``limit`` caps how many candidate URLs are taken from *each* adapter per

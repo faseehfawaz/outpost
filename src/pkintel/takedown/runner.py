@@ -1,5 +1,10 @@
 """
 Runner for the takedown pipeline.
+
+Phase 1: Generates draft takedown abuse reports for confirmed phish URLs.
+         Works with or without a collected kit — URL-based takedowns are
+         generated for every phishing URL that does not yet have a takedown.
+Phase 2: Sends draft takedowns (respecting dry-run settings).
 """
 
 from pkintel.config import settings
@@ -11,17 +16,18 @@ from pkintel.takedown.templates import host_abuse_report, registrar_report, tele
 log = get_logger(__name__)
 
 
-def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
+def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
     """
     Run the takedown worker once.
 
-    Phase 1: Generates draft takedowns for phish URLs.
+    Phase 1: Generates draft takedowns for phish URLs (kit optional).
     Phase 2: Sends draft takedowns (respecting dry-run settings).
     """
     processed_count = 0
 
     # --- Phase 1: Generate Drafts ---
-    # Fetch phish URLs that don't have takedowns associated yet
+    # Fetch phish URLs that don't have takedowns associated yet.
+    # This now works for ALL confirmed phish — not just those with kits.
     query_drafts = """
         SELECT u.id, u.url, u.host
         FROM urls u
@@ -37,11 +43,10 @@ def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
             url = url_row["url"]
             host = url_row["host"]
 
-            # Enrich host
+            # Enrich host via RDAP/WHOIS
             host_info = enrich_host(host)
 
-            # Mock lookup for related kit and indicators
-            # In a full query, this would join kits and indicators properly
+            # Check if this URL has an associated kit (optional)
             kit_query = """
                 SELECT k.id, k.sha256 
                 FROM kits k 
@@ -52,7 +57,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
             kit_sha = kits[0]["sha256"] if kits else None
             kit_summary = {"sha256": kit_sha, "count": 1 if kit_id else 0}
 
-            # 1. Host Abuse Report
+            # 1. Host Abuse Report — always generated
             h_sub, h_body = host_abuse_report(url, host_info, kit_summary)
             h_contact = host_info.get("abuse_email", "abuse@localhost")
             execute(
@@ -63,7 +68,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
                 (url_id, kit_id, h_contact, h_sub, h_body),
             )
 
-            # 2. Registrar Abuse Report
+            # 2. Registrar Abuse Report — always generated
             r_sub, r_body = registrar_report(url, host_info, kit_summary)
             r_contact = host_info.get("registrar_abuse_email", "abuse@localhost")
             execute(
@@ -74,7 +79,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
                 (url_id, kit_id, r_contact, r_sub, r_body),
             )
 
-            # 3. Telegram Report (if Telegram indicators exist)
+            # 3. Telegram Report (only if kit has Telegram indicators)
             if kit_id:
                 ind_query = "SELECT value FROM indicators WHERE kit_id = %s AND type = 'telegram'"
                 telegram_inds = fetch_all(ind_query, (kit_id,))
@@ -87,11 +92,21 @@ def run_once(worker_id: str = "takedown-1", limit: int = 20) -> int:
                         """,
                         (url_id, kit_id, t_sub, t_body),
                     )
+
+            log.info(
+                "takedown_draft_created",
+                url_id=url_id,
+                host=host,
+                has_kit=kit_id is not None,
+                abuse_email=h_contact,
+            )
+
         except Exception as e:
             log.exception(
                 "Error generating draft takedowns for URL ID %s: %s", url_row.get("id"), e
             )
 
+    # --- Phase 2: Send Drafts ---
     drafts = claim_rows(
         "takedowns",
         ready_col="status",
