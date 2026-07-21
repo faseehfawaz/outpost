@@ -4,14 +4,14 @@
  */
 
 const C = {
-    CYAN:   '#00f5d4',
-    BLUE:   '#0080ff',
+    CYAN:   '#00ff41',
+    BLUE:   '#00cc44',
     RED:    '#ff2d55',
     ORANGE: '#ff6b35',
     YELLOW: '#ffd60a',
-    GREEN:  '#30d158',
+    GREEN:  '#00ff41',
     PURPLE: '#a78bfa',
-    DIM:    'rgba(0,128,255,0.15)',
+    DIM:    'rgba(0,255,65,0.12)',
 };
 
 // ============================================================
@@ -37,10 +37,10 @@ const C = {
         this.vx = (Math.random() - 0.5) * 0.35;
         this.vy = (Math.random() - 0.5) * 0.35;
         this.r  = Math.random() * 1.5 + 0.5;
-        this.alpha = Math.random() * 0.4 + 0.1;
+        this.alpha = Math.random() * 0.35 + 0.08;
         this.pulse = Math.random() * Math.PI * 2;
         this.pulseSpeed = Math.random() * 0.015 + 0.005;
-        this.color = Math.random() > 0.85 ? C.CYAN : C.BLUE;
+        this.color = Math.random() > 0.7 ? C.CYAN : (Math.random() > 0.5 ? C.BLUE : '#008822');
     }
 
     function build() {
@@ -65,7 +65,7 @@ const C = {
                 ctx.beginPath();
                 ctx.moveTo(a.x, a.y);
                 ctx.lineTo(b.x, b.y);
-                ctx.strokeStyle = `rgba(0, 128, 255, ${alpha})`;
+                ctx.strokeStyle = `rgba(0, 200, 60, ${alpha})`;
                 ctx.lineWidth = 0.5;
                 ctx.stroke();
             }
@@ -125,7 +125,7 @@ const C = {
                 ctx.beginPath();
                 ctx.moveTo(a.x, a.y);
                 ctx.lineTo(b.x, b.y);
-                ctx.strokeStyle = `rgba(0, 128, 255, ${alpha})`;
+                ctx.strokeStyle = `rgba(0, 200, 60, ${alpha})`;
                 ctx.lineWidth   = 0.5;
                 ctx.stroke();
             }
@@ -175,7 +175,7 @@ function drawSparkline(canvasId, data, color) {
 
     // Fill gradient
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, color.replace(')', ', 0.25)').replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/i, (_, h) =>
+    grad.addColorStop(0, color.replace(')', ', 0.2)').replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/i, (_, h) =>
         `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`));
     grad.addColorStop(1, 'rgba(0,0,0,0)');
 
@@ -304,11 +304,11 @@ function initSparklines() {
         ctx.closePath();
 
         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-        grad.addColorStop(0, 'rgba(0,245,212,0.3)');
-        grad.addColorStop(1, 'rgba(0,128,255,0.05)');
+        grad.addColorStop(0, 'rgba(0,255,65,0.2)');
+        grad.addColorStop(1, 'rgba(0,180,40,0.03)');
         ctx.fillStyle   = grad;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,245,212,0.7)';
+        ctx.strokeStyle = 'rgba(0,255,65,0.75)';
         ctx.lineWidth   = 1.5;
         ctx.stroke();
 
@@ -439,8 +439,8 @@ function initSparklines() {
 
             // Total bar
             const gTotal = ctx.createLinearGradient(0, baseY - totalH, 0, baseY);
-            gTotal.addColorStop(0, 'rgba(0,128,255,0.7)');
-            gTotal.addColorStop(1, 'rgba(0,128,255,0.08)');
+            gTotal.addColorStop(0, 'rgba(0,255,65,0.6)');
+            gTotal.addColorStop(1, 'rgba(0,100,20,0.08)');
             ctx.fillStyle = gTotal;
             ctx.fillRect(x, baseY - totalH, barW, totalH);
 
@@ -455,16 +455,16 @@ function initSparklines() {
 
             // Top cap
             const isLast = i === data.length - 1;
-            ctx.fillStyle = isLast ? C.CYAN : 'rgba(0,128,255,0.6)';
+            ctx.fillStyle = isLast ? C.CYAN : 'rgba(0,200,50,0.7)';
             if (totalH > 0) ctx.fillRect(x, baseY - totalH, barW, 2);
         });
 
         // Legend
         ctx.font = '7px JetBrains Mono, monospace';
         ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(0,128,255,0.4)';
+        ctx.fillStyle = 'rgba(0,255,65,0.45)';
         ctx.fillText('■ TOTAL', W - 80, PAD_TOP + 10);
-        ctx.fillStyle = 'rgba(255,45,85,0.5)';
+        ctx.fillStyle = 'rgba(255,45,85,0.55)';
         ctx.fillText('■ PHISH', W - 80, PAD_TOP + 20);
 
         if (t < 1) requestAnimationFrame(draw);

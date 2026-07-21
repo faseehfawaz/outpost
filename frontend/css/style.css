@@ -6,46 +6,49 @@
 ============================================================ */
 
 :root {
-    --void: #010409;
-    --deep: #040d1a;
-    --surface: #070f1d;
-    --card: #0a1628;
-    --card-2: #0d1e36;
-    --glass: rgba(7, 15, 29, 0.85);
+    /* === PURE BLACK CYBER PALETTE === */
+    --void: #000000;
+    --deep: #080808;
+    --surface: #0d0d0d;
+    --card: #111111;
+    --card-2: #161616;
+    --glass: rgba(10, 10, 10, 0.92);
 
-    --t-primary: #d4e8ff;
-    --t-secondary: #5a7fa8;
-    --t-dim: #243550;
-    --t-muted: #162234;
+    --t-primary: #e8ffe8;
+    --t-secondary: #4a7a55;
+    --t-dim: #1e3a26;
+    --t-muted: #0f1f14;
 
-    --cyan: #00f5d4;
-    --cyan-dim: rgba(0, 245, 212, 0.07);
-    --cyan-glow: 0 0 20px rgba(0, 245, 212, 0.4), 0 0 60px rgba(0, 245, 212, 0.1);
-    --cyan-border: rgba(0, 245, 212, 0.2);
+    /* Matrix green — primary accent */
+    --cyan: #00ff41;
+    --cyan-dim: rgba(0, 255, 65, 0.06);
+    --cyan-glow: 0 0 20px rgba(0, 255, 65, 0.5), 0 0 60px rgba(0, 255, 65, 0.12);
+    --cyan-border: rgba(0, 255, 65, 0.22);
 
-    --blue: #0080ff;
-    --blue-dim: rgba(0, 128, 255, 0.06);
-    --blue-glow: 0 0 30px rgba(0, 128, 255, 0.3);
-    --blue-border: rgba(0, 128, 255, 0.18);
+    /* Secondary: electric green-blue */
+    --blue: #00cc44;
+    --blue-dim: rgba(0, 204, 68, 0.05);
+    --blue-glow: 0 0 30px rgba(0, 204, 68, 0.3);
+    --blue-border: rgba(0, 255, 65, 0.12);
 
     --red: #ff2d55;
     --red-dim: rgba(255, 45, 85, 0.08);
-    --red-glow: 0 0 20px rgba(255, 45, 85, 0.4);
+    --red-glow: 0 0 20px rgba(255, 45, 85, 0.5);
     --orange: #ff6b35;
     --yellow: #ffd60a;
-    --green: #30d158;
+    --green: #00ff41;
 
-    --border: rgba(0, 128, 255, 0.1);
-    --border-bright: rgba(0, 245, 212, 0.18);
+    --border: rgba(0, 255, 65, 0.08);
+    --border-bright: rgba(0, 255, 65, 0.2);
 
     --font-body: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
     --font-display: 'Orbitron', sans-serif;
     --font-terminal: 'Share Tech Mono', monospace;
 
-    --shadow-card: 0 4px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(0, 128, 255, 0.1);
-    --shadow-hover: 0 8px 60px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 245, 212, 0.15);
-    --shadow-glow: 0 0 40px rgba(0, 128, 255, 0.15);
+    --shadow-card: 0 4px 40px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(0, 255, 65, 0.06);
+    --shadow-hover: 0 8px 60px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(0, 255, 65, 0.18);
+    --shadow-glow: 0 0 40px rgba(0, 255, 65, 0.1);
 
     --radius: 8px;
     --radius-lg: 12px;
