@@ -3,161 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outpost — Phishing-Kit Intelligence Platform</title>
-    <meta name="description" content="Real-time phishing kit detection, actor tracking, and threat intelligence dashboard.">
+    <title>Outpost — Threat Intelligence Command Center</title>
+    <meta name="description" content="Real-time phishing kit detection, actor fingerprinting, and threat intelligence platform.">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <nav class="nav">
-        <div class="nav-brand">
-            <span class="logo">outpost</span>
-            <span class="sep">/</span>
-            <span class="subtitle">phishing-kit intelligence</span>
-        </div>
+
+<!-- Particle Background Canvas -->
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<!-- ═══════════════════════════════════ NAV ═══════════════════════════════════ -->
+<nav class="nav">
+    <div class="nav-left">
+        <a href="index.html" class="logo-wrap">
+            <div class="logo-icon">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="16,2 30,24 2,24" stroke="#00f5d4" stroke-width="1.5" fill="rgba(0,245,212,0.05)"/>
+                    <polygon points="16,8 25,22 7,22" stroke="#00f5d4" stroke-width="0.75" fill="rgba(0,245,212,0.08)" opacity="0.5"/>
+                    <circle cx="16" cy="16" r="2.5" fill="#00f5d4" style="filter:drop-shadow(0 0 6px #00f5d4)"/>
+                </svg>
+            </div>
+            <div class="logo-text">
+                <span class="logo-name">Outpost</span>
+                <span class="logo-sub">Threat Intelligence Platform</span>
+            </div>
+        </a>
+
         <ul class="nav-links">
-            <li><a href="index.html" class="active">dashboard</a></li>
-            <li><a href="actors.html">actors</a></li>
-            <li><a href="ioc.html">ioc feed</a></li>
+            <li><a href="index.html" class="active">⬡ Dashboard</a></li>
+            <li><a href="actors.html">⬡ Actors</a></li>
+            <li><a href="ioc.html">⬡ IOC Feed</a></li>
         </ul>
+    </div>
+
+    <div class="nav-right">
+        <div class="nav-threat">
+            <span class="threat-label">Threat Level</span>
+            <span class="threat-level" id="threat-level">ELEVATED</span>
+        </div>
+        <div class="nav-clock">
+            <div class="clock-time" id="nav-clock">00:00:00</div>
+            <div class="clock-date" id="nav-date">--</div>
+        </div>
         <div class="nav-status">
-            <span class="status-online">system online</span>
+            <span class="status-dot"></span>
+            <span>System Online</span>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <main class="main fade-in" id="dashboard">
+<!-- ═══════════════════════════════ TICKER BAR ════════════════════════════════ -->
+<div class="ticker-bar">
+    <div class="ticker-label">⬡ Live Intel</div>
+    <div class="ticker-track">
+        <div class="ticker-content" id="ticker">
+            <span>●</span> PIPELINE ACTIVE — TRIAGING URLS IN REAL TIME &nbsp;&nbsp;&nbsp;
+            <span>●</span> PHISHING DETECTION ENGINE RUNNING &nbsp;&nbsp;&nbsp;
+            <span>●</span> URLHAUS FEED INGESTED &nbsp;&nbsp;&nbsp;
+            <span>●</span> OPENPHISH FEED ACTIVE &nbsp;&nbsp;&nbsp;
+            <span>●</span> TRIAGE CYCLE COMPLETE — RESULTS UPDATED &nbsp;&nbsp;&nbsp;
+            <span>●</span> DATABASE CONNECTED — NEON POSTGRESQL &nbsp;&nbsp;&nbsp;
+            <span>●</span> PASSIVE RESEARCH MODE — NO KITS EXECUTED &nbsp;&nbsp;&nbsp;
+            <span>●</span> PIPELINE ACTIVE — TRIAGING URLS IN REAL TIME &nbsp;&nbsp;&nbsp;
+            <span>●</span> PHISHING DETECTION ENGINE RUNNING &nbsp;&nbsp;&nbsp;
+            <span>●</span> URLHAUS FEED INGESTED &nbsp;&nbsp;&nbsp;
+            <span>●</span> OPENPHISH FEED ACTIVE &nbsp;&nbsp;&nbsp;
+        </div>
+    </div>
+</div>
 
-        <!-- Stat Cards -->
-        <div class="stats-row" id="stats-row">
-            <div class="stat-card">
-                <span class="label">URLs Ingested</span>
-                <span class="value" id="stat-total">—</span>
-                <span class="delta">total processed</span>
+<!-- ═══════════════════════════════ MAIN BODY ═════════════════════════════════ -->
+<main class="main">
+
+    <!-- STAT CARDS -->
+    <div class="stats-grid fade-in" id="stats-row">
+        <div class="stat-card">
+            <span class="stat-corner">SYS-01</span>
+            <div class="stat-icon">📡</div>
+            <div class="stat-label">URLs Ingested</div>
+            <div class="stat-value" id="stat-total">—</div>
+            <div class="stat-spark"><canvas id="spark-total" height="32"></canvas></div>
+            <div class="stat-sub">total processed</div>
+        </div>
+        <div class="stat-card s-threat">
+            <span class="stat-corner">SYS-02</span>
+            <div class="stat-icon">🎯</div>
+            <div class="stat-label">Active Phish</div>
+            <div class="stat-value" id="stat-phish">—</div>
+            <div class="stat-spark"><canvas id="spark-phish" height="32"></canvas></div>
+            <div class="stat-sub">live &amp; confirmed</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-corner">SYS-03</span>
+            <div class="stat-icon">📦</div>
+            <div class="stat-label">Kits Collected</div>
+            <div class="stat-value" id="stat-kits">—</div>
+            <div class="stat-spark"><canvas id="spark-kits" height="32"></canvas></div>
+            <div class="stat-sub">archived kits</div>
+        </div>
+        <div class="stat-card s-accent">
+            <span class="stat-corner">SYS-04</span>
+            <div class="stat-icon">👤</div>
+            <div class="stat-label">Actors Tracked</div>
+            <div class="stat-value" id="stat-actors">—</div>
+            <div class="stat-spark"><canvas id="spark-actors" height="32"></canvas></div>
+            <div class="stat-sub">fingerprinted</div>
+        </div>
+        <div class="stat-card s-warn">
+            <span class="stat-corner">SYS-05</span>
+            <div class="stat-icon">🚨</div>
+            <div class="stat-label">Takedowns Filed</div>
+            <div class="stat-value" id="stat-takedowns">—</div>
+            <div class="stat-spark"><canvas id="spark-takedowns" height="32"></canvas></div>
+            <div class="stat-sub">abuse reports sent</div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID: Feed Table + Activity -->
+    <div class="dashboard-grid fade-in-2">
+
+        <!-- LEFT: Live Feed -->
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title">
+                    <span class="live-dot"></span>
+                    Live Phishing Feed
+                </div>
+                <div style="display:flex;align-items:center;gap:0.75rem">
+                    <span class="panel-badge badge-live">Monitoring</span>
+                    <span class="panel-meta" id="refresh-timer">next refresh 30s</span>
+                </div>
             </div>
-            <div class="stat-card threat">
-                <span class="label">Active Phish</span>
-                <span class="value" id="stat-phish">—</span>
-                <span class="delta">live &amp; confirmed</span>
-            </div>
-            <div class="stat-card">
-                <span class="label">Kits Collected</span>
-                <span class="value" id="stat-kits">—</span>
-                <span class="delta">archived kits</span>
-            </div>
-            <div class="stat-card accent">
-                <span class="label">Actors Tracked</span>
-                <span class="value" id="stat-actors">—</span>
-                <span class="delta">fingerprinted</span>
-            </div>
-            <div class="stat-card warn">
-                <span class="label">Takedowns Filed</span>
-                <span class="value" id="stat-takedowns">—</span>
-                <span class="delta">abuse reports sent</span>
+            <div class="panel-body">
+                <table class="feed-table">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Brand</th>
+                            <th>Score</th>
+                            <th>First Seen</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="live-feed-body"></tbody>
+                </table>
+                <div class="empty-state" id="live-empty" style="display:none;">
+                    <div class="empty-icon">⏳</div>
+                    <p>No confirmed live phishing sites yet</p>
+                    <p class="empty-hint">pipeline is triaging URLs — results appear here automatically</p>
+                </div>
             </div>
         </div>
 
-        <!-- Charts Row -->
-        <div class="charts-row">
-
-            <!-- Network Activity Radar -->
-            <div class="chart-panel">
-                <div class="chart-panel-header">
-                    <h3>⬡ Threat Network</h3>
-                    <span class="meta" style="font-size:0.62rem; color: var(--text-dim); font-family: var(--font-mono);">live nodes</span>
-                </div>
-                <div class="chart-panel-body">
-                    <canvas id="network-canvas"></canvas>
+        <!-- RIGHT: Activity -->
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title">Recent Activity</div>
+                <span class="panel-badge badge-ok">Live</span>
+            </div>
+            <div class="panel-body">
+                <div class="activity-feed" id="recent-timeline"></div>
+                <div class="empty-state" id="recent-empty" style="display:none;">
+                    <div class="empty-icon">⏳</div>
+                    <p>Awaiting triage results</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Triage Volume Chart -->
-            <div class="chart-panel">
-                <div class="chart-panel-header">
-                    <h3>⬡ Triage Volume</h3>
-                    <span class="meta" style="font-size:0.62rem; color: var(--text-dim); font-family: var(--font-mono);">last 12 cycles</span>
-                </div>
-                <div class="chart-panel-body">
-                    <canvas id="triage-canvas" class="mini-chart"></canvas>
-                </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="charts-row fade-in-3">
+
+        <!-- Radar Threat Chart -->
+        <div class="chart-panel">
+            <div class="chart-head">
+                <div class="chart-title">⬡ Threat Radar</div>
+                <div class="chart-stat" id="radar-peak">—</div>
             </div>
+            <div class="chart-body">
+                <canvas id="radar-canvas"></canvas>
+            </div>
+        </div>
 
-            <!-- Brand Target Distribution -->
-            <div class="chart-panel">
-                <div class="chart-panel-header">
-                    <h3>⬡ Brand Targeting</h3>
-                    <span class="meta" style="font-size:0.62rem; color: var(--text-dim); font-family: var(--font-mono);">active phish</span>
-                </div>
-                <div class="chart-panel-body">
-                    <div class="threat-meter" id="brand-meter">
-                        <div class="meter-item">
-                            <div class="meter-label"><span class="name">Loading...</span></div>
-                        </div>
+        <!-- Triage Volume -->
+        <div class="chart-panel">
+            <div class="chart-head">
+                <div class="chart-title">⬡ Triage Volume</div>
+                <div class="chart-stat" id="triage-label">Last 12 cycles</div>
+            </div>
+            <div class="chart-body" style="padding:0.75rem 1rem 1rem;">
+                <canvas id="triage-canvas" style="height:160px;"></canvas>
+            </div>
+        </div>
+
+        <!-- Brand Targeting -->
+        <div class="chart-panel">
+            <div class="chart-head">
+                <div class="chart-title">⬡ Brand Targeting</div>
+                <div class="chart-stat">Active Phish</div>
+            </div>
+            <div class="chart-body" style="align-items:flex-start;">
+                <div class="brand-meter" id="brand-meter">
+                    <div class="bm-item">
+                        <span class="bm-name" style="color:var(--t-muted)">loading...</span>
                     </div>
                 </div>
             </div>
-
         </div>
 
-        <!-- Main Panels -->
-        <div class="panels">
-            <div class="panel">
-                <div class="panel-header">
-                    <h2><span class="live-dot"></span>&nbsp; Live Phishing Feed</h2>
-                    <span class="meta" id="refresh-timer">next refresh in 30s</span>
-                </div>
-                <div class="panel-body">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>URL</th>
-                                <th>Brand</th>
-                                <th>Score</th>
-                                <th>First Seen</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="live-feed-body"></tbody>
-                    </table>
-                    <div class="empty-state" id="live-empty" style="display:none;">
-                        <div class="icon">⏳</div>
-                        <p>No confirmed live phishing sites yet</p>
-                        <p class="hint">pipeline is triaging URLs — results appear here automatically</p>
-                    </div>
-                </div>
-            </div>
+    </div>
 
-            <div class="panel">
-                <div class="panel-header">
-                    <h2>Recent Activity</h2>
-                </div>
-                <div class="panel-body">
-                    <div class="timeline" id="recent-timeline"></div>
-                    <div class="empty-state" id="recent-empty" style="display:none;">
-                        <div class="icon">⏳</div>
-                        <p>Waiting for triage results</p>
-                        <p class="hint">the pipeline is processing ingested URLs</p>
-                    </div>
-                </div>
-            </div>
+</main>
+
+<!-- ═══════════════════════════════ FOOTER ════════════════════════════════════ -->
+<footer>
+    <div class="footer-inner">
+        <div class="footer-left">
+            passive research only &nbsp;·&nbsp; no kits executed &nbsp;·&nbsp; no victim data retained &nbsp;·&nbsp; see docs/SCOPE_AND_ETHICS.md
         </div>
-
-    </main>
-
-    <footer>
-        <div class="footer-inner">
-            <span class="footer-ethics">passive research only — see docs/SCOPE_AND_ETHICS.md — never executes kits, never retains victim data</span>
-            <span class="footer-dev">
-                built by
-                <a href="https://github.com/faseehfawaz" target="_blank" rel="noopener noreferrer">
-                    <svg class="gh-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                    </svg>
-                    Faseeh Padinjarathil
-                </a>
-            </span>
+        <div class="footer-right">
+            <span>built by</span>
+            <a class="footer-dev-link" href="https://github.com/faseehfawaz" target="_blank" rel="noopener noreferrer">
+                <svg class="gh-svg" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                Faseeh Padinjarathil
+            </a>
         </div>
-    </footer>
+    </div>
+</footer>
 
-    <script src="js/app.js"></script>
-    <script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+<script src="js/charts.js"></script>
+
 </body>
 </html>

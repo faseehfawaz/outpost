@@ -1,4 +1,8 @@
-// Core configuration and API Client
+/**
+ * app.js — Core dashboard logic
+ * Outpost Threat Intelligence Platform
+ */
+
 const API_BASE = '/api';
 
 class API {
@@ -15,28 +19,31 @@ class API {
 }
 
 const U = {
-    // Animate a counter from 0 to target
-    countUp(el, target, duration = 800) {
+    countUp(el, target, duration = 1200) {
+        if (!el) return;
         if (target === 0) { el.textContent = '0'; return; }
         let start = null;
+        const from = parseInt(el.textContent.replace(/,/g, '')) || 0;
         const step = (ts) => {
             if (!start) start = ts;
             const p = Math.min((ts - start) / duration, 1);
-            el.textContent = Math.floor(p * target).toLocaleString();
+            const ease = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.floor(from + (target - from) * ease).toLocaleString();
             if (p < 1) requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
     },
 
-    // Format ISO date to short readable string
     fmtDate(iso) {
         if (!iso) return '—';
         const d = new Date(iso);
         if (isNaN(d.getTime())) return '—';
-        return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+        return d.toLocaleString('en-US', {
+            month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        });
     },
 
-    // Score badge HTML
     scoreBadge(score) {
         let cls = 'low';
         if (score >= 80) cls = 'critical';
@@ -45,23 +52,44 @@ const U = {
         return `<span class="score ${cls}">${score}</span>`;
     },
 
-    // Defang URL for display
     defang(url) {
         if (!url) return '';
         return url.replace(/^https?/i, 'hXXp');
     },
-
-    // Redact a value
-    redact(val) {
-        if (!val || val.length <= 6) return '***';
-        return val.substring(0, 4) + '···' + val.substring(val.length - 3);
-    }
 };
 
-// ---- DASHBOARD ----
+// ============================================================
+// SYSTEM CLOCK
+// ============================================================
+function startClock() {
+    const timeEl = document.getElementById('nav-clock');
+    const dateEl = document.getElementById('nav-date');
+    if (!timeEl) return;
+
+    function update() {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        timeEl.textContent = `${h}:${m}:${s}`;
+        if (dateEl) {
+            const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+            const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+            dateEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
+    }
+    update();
+    setInterval(update, 1000);
+}
+
+// ============================================================
+// DASHBOARD INIT
+// ============================================================
 async function initDashboard() {
     const statsRow = document.getElementById('stats-row');
     if (!statsRow) return;
+
+    startClock();
 
     const loadStats = async () => {
         const s = await API.get('/feeds/stats');
@@ -71,56 +99,77 @@ async function initDashboard() {
         U.countUp(document.getElementById('stat-kits'), s.kits_collected || 0);
         U.countUp(document.getElementById('stat-actors'), s.actors_identified || 0);
         U.countUp(document.getElementById('stat-takedowns'), s.takedowns_sent || 0);
+
+        // Threat level
+        const tl = document.getElementById('threat-level');
+        if (tl) {
+            const phish = s.phish_count || 0;
+            if (phish >= 20) { tl.textContent = 'CRITICAL'; tl.style.color = 'var(--red)'; }
+            else if (phish >= 5) { tl.textContent = 'ELEVATED'; tl.style.color = 'var(--yellow)'; }
+            else if (phish > 0) { tl.textContent = 'GUARDED'; tl.style.color = 'var(--orange)'; }
+            else { tl.textContent = 'LOW'; tl.style.color = 'var(--green)'; }
+        }
     };
 
     const loadLive = async () => {
         const data = await API.get('/feeds/live');
         const tbody = document.getElementById('live-feed-body');
         const empty = document.getElementById('live-empty');
+        if (!tbody) return;
 
         if (!data || data.length === 0) {
             tbody.innerHTML = '';
-            empty.style.display = 'block';
+            if (empty) empty.style.display = 'block';
             return;
         }
-        empty.style.display = 'none';
+        if (empty) empty.style.display = 'none';
+
         tbody.innerHTML = data.map(f => `
             <tr>
-                <td class="url-cell">${U.defang(f.url)}</td>
-                <td><span class="tag">${f.brand || '—'}</span></td>
+                <td class="td-url">${U.defang(f.url)}</td>
+                <td class="td-brand"><span class="tag">${f.brand || '—'}</span></td>
                 <td>${U.scoreBadge(f.phish_score || f.score || 0)}</td>
                 <td class="mono">${U.fmtDate(f.first_seen)}</td>
                 <td><span class="status-live"><span class="live-dot"></span> LIVE</span></td>
             </tr>
         `).join('');
+
+        // Update brand chart
+        if (window.updateBrandMeter) window.updateBrandMeter(data);
+        if (window.updateRadar) window.updateRadar(data);
     };
 
     const loadRecent = async () => {
         const data = await API.get('/feeds/recent');
         const tl = document.getElementById('recent-timeline');
         const empty = document.getElementById('recent-empty');
+        if (!tl) return;
 
         if (!data || data.length === 0) {
             tl.innerHTML = '';
-            empty.style.display = 'block';
+            if (empty) empty.style.display = 'block';
             return;
         }
-        empty.style.display = 'none';
+        if (empty) empty.style.display = 'none';
+
         tl.innerHTML = data.map(r => {
-            const label = r.is_phish
-                ? `<span class="phish-label">PHISH</span> ${r.brand || ''}`
-                : `<span class="clean-label">CLEAN</span>`;
+            const isPhish = r.is_phish;
             return `
-                <div class="tl-item">
-                    <div class="tl-time">${U.fmtDate(r.triaged_at)}</div>
-                    <div class="tl-content">${label} <span class="url">${U.defang(r.url)}</span></div>
-                </div>`;
+            <div class="activity-item ${isPhish ? 'is-phish' : 'is-clean'}">
+                <div class="activity-dot"></div>
+                <div class="activity-body">
+                    <div class="activity-time">${U.fmtDate(r.triaged_at)}</div>
+                    <div class="activity-label ${isPhish ? 'label-phish' : 'label-clean'}">
+                        ${isPhish ? `PHISH ${r.brand ? '· ' + r.brand : ''}` : 'CLEAN'}
+                    </div>
+                    <div class="activity-url">${U.defang(r.url)}</div>
+                </div>
+            </div>`;
         }).join('');
     };
 
     await loadStats();
-    await loadLive();
-    await loadRecent();
+    await Promise.all([loadLive(), loadRecent()]);
 
     // Auto-refresh
     let cd = 30;
@@ -133,7 +182,7 @@ async function initDashboard() {
             loadLive();
             loadRecent();
         }
-        timer.textContent = `next refresh in ${cd}s`;
+        if (timer) timer.textContent = `next refresh ${cd}s`;
     }, 1000);
 }
 

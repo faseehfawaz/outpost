@@ -3,83 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IOC Feed — outpost</title>
+    <title>IOC Feed — Outpost Threat Intelligence</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <nav class="nav">
-        <div class="nav-brand">
-            <span class="logo">outpost</span>
-            <span class="sep">/</span>
-            <span class="subtitle">phishing-kit intelligence</span>
-        </div>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<nav class="nav">
+    <div class="nav-left">
+        <a href="index.html" class="logo-wrap">
+            <div class="logo-icon">
+                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <polygon points="16,2 30,24 2,24" stroke="#00f5d4" stroke-width="1.5" fill="rgba(0,245,212,0.05)"/>
+                    <polygon points="16,8 25,22 7,22" stroke="#00f5d4" stroke-width="0.75" fill="rgba(0,245,212,0.08)" opacity="0.5"/>
+                    <circle cx="16" cy="16" r="2.5" fill="#00f5d4" style="filter:drop-shadow(0 0 6px #00f5d4)"/>
+                </svg>
+            </div>
+            <div class="logo-text">
+                <span class="logo-name">Outpost</span>
+                <span class="logo-sub">Threat Intelligence Platform</span>
+            </div>
+        </a>
         <ul class="nav-links">
-            <li><a href="index.html">dashboard</a></li>
-            <li><a href="actors.html">actors</a></li>
-            <li><a href="ioc.html" class="active">ioc feed</a></li>
+            <li><a href="index.html">⬡ Dashboard</a></li>
+            <li><a href="actors.html">⬡ Actors</a></li>
+            <li><a href="ioc.html" class="active">⬡ IOC Feed</a></li>
         </ul>
+    </div>
+    <div class="nav-right">
+        <div class="nav-clock">
+            <div class="clock-time" id="nav-clock">00:00:00</div>
+            <div class="clock-date" id="nav-date">--</div>
+        </div>
         <div class="nav-status">
-            <span class="status-online">system online</span>
+            <span class="status-dot"></span>
+            <span>System Online</span>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <main class="main fade-in">
-        <div class="page-header">
-            <h2>Indicators of Compromise</h2>
-            <div class="controls">
-                <select id="ioc-filter" class="input">
-                    <option value="all">all types</option>
-                    <option value="telegram_token">telegram_token</option>
-                    <option value="telegram_chat">telegram_chat</option>
-                    <option value="discord_webhook">discord_webhook</option>
-                    <option value="email">email</option>
-                    <option value="smtp">smtp</option>
-                    <option value="url">exfil_url</option>
-                </select>
-                <button class="btn btn-accent" id="download-json">↓ export json</button>
+<div class="ticker-bar">
+    <div class="ticker-label">⬡ Intel</div>
+    <div class="ticker-track">
+        <div class="ticker-content">
+            <span>●</span> IOC EXTRACTION ENGINE ACTIVE &nbsp;&nbsp;&nbsp;
+            <span>●</span> TELEGRAM TOKEN DETECTION ENABLED &nbsp;&nbsp;&nbsp;
+            <span>●</span> DISCORD WEBHOOK SCANNING ACTIVE &nbsp;&nbsp;&nbsp;
+            <span>●</span> SMTP CREDENTIAL DETECTION RUNNING &nbsp;&nbsp;&nbsp;
+            <span>●</span> IOC EXTRACTION ENGINE ACTIVE &nbsp;&nbsp;&nbsp;
+            <span>●</span> TELEGRAM TOKEN DETECTION ENABLED &nbsp;&nbsp;&nbsp;
+            <span>●</span> DISCORD WEBHOOK SCANNING ACTIVE &nbsp;&nbsp;&nbsp;
+            <span>●</span> SMTP CREDENTIAL DETECTION RUNNING &nbsp;&nbsp;&nbsp;
+        </div>
+    </div>
+</div>
+
+<main class="actors-shell fade-in">
+    <div class="page-header">
+        <div class="page-title">⬡ Indicators of Compromise</div>
+        <div class="controls">
+            <select id="ioc-filter" class="input">
+                <option value="all">all types</option>
+                <option value="telegram_token">telegram_token</option>
+                <option value="telegram_chat">telegram_chat</option>
+                <option value="discord_webhook">discord_webhook</option>
+                <option value="email">email</option>
+                <option value="smtp">smtp</option>
+                <option value="url">exfil_url</option>
+            </select>
+            <button class="btn btn-accent" id="download-json">↓ export json</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-head">
+            <div class="panel-title">IOC Database</div>
+            <span class="panel-meta" id="ioc-count">—</span>
+        </div>
+        <div class="panel-body">
+            <table class="feed-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Value (Redacted)</th>
+                        <th>Kit SHA256</th>
+                        <th>Actor</th>
+                        <th>Brand</th>
+                        <th>First Seen</th>
+                    </tr>
+                </thead>
+                <tbody id="ioc-body"></tbody>
+            </table>
+            <div class="empty-state" id="ioc-empty" style="display:none;">
+                <div class="empty-icon">🔒</div>
+                <p>No indicators extracted yet</p>
+                <p class="empty-hint">indicators appear after kits are collected and analyzed in the sandbox</p>
             </div>
         </div>
+    </div>
+</main>
 
-        <div class="panel">
-            <div class="panel-body">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Value (Redacted)</th>
-                            <th>Kit SHA256</th>
-                            <th>Actor</th>
-                            <th>Brand</th>
-                            <th>First Seen</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ioc-body"></tbody>
-                </table>
-                <div class="empty-state" id="ioc-empty" style="display:none;">
-                    <div class="icon">🔒</div>
-                    <p>No indicators extracted yet</p>
-                    <p class="hint">indicators appear after kits are collected and analyzed in the sandbox</p>
-                </div>
-            </div>
+<footer>
+    <div class="footer-inner">
+        <div class="footer-left">passive research only &nbsp;·&nbsp; values are redacted — full indicators shared only with abuse desks</div>
+        <div class="footer-right">
+            <span>built by</span>
+            <a class="footer-dev-link" href="https://github.com/faseehfawaz" target="_blank" rel="noopener noreferrer">
+                <svg class="gh-svg" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                Faseeh Padinjarathil
+            </a>
         </div>
-    </main>
+    </div>
+</footer>
 
-    <footer>
-        <div class="footer-inner">
-            <span class="footer-ethics">passive research only — values are redacted; full indicators shared only with abuse desks</span>
-            <span class="footer-dev">
-                built by
-                <a href="https://github.com/faseehfawaz" target="_blank" rel="noopener noreferrer">
-                    <svg class="gh-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                    </svg>
-                    Faseeh Padinjarathil
-                </a>
-            </span>
-        </div>
-    </footer>
-
-    <script src="js/app.js"></script>
-    <script src="js/ioc.js"></script>
+<script src="js/app.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/ioc.js"></script>
 </body>
 </html>

@@ -1,317 +1,550 @@
 /**
- * charts.js — Animated threat intelligence visualizations
- * Outpost Phishing-Kit Intelligence Platform
+ * charts.js — All animated visualizations for Outpost
+ * Particle background, sparklines, radar chart, triage bars, brand meter
  */
 
+const C = {
+    CYAN:   '#00f5d4',
+    BLUE:   '#0080ff',
+    RED:    '#ff2d55',
+    ORANGE: '#ff6b35',
+    YELLOW: '#ffd60a',
+    GREEN:  '#30d158',
+    PURPLE: '#a78bfa',
+    DIM:    'rgba(0,128,255,0.15)',
+};
+
 // ============================================================
-// NETWORK NODE GRAPH — Animated threat network canvas
+// 1. PARTICLE BACKGROUND
 // ============================================================
-(function initNetworkGraph() {
-    const canvas = document.getElementById('network-canvas');
+(function initParticles() {
+    const canvas = document.getElementById('bg-canvas');
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
-    const NEON = '#00f5d4';
-    const BLUE = '#0088ff';
-    const RED = '#ff2d55';
-    const DIM = 'rgba(0,136,255,0.15)';
 
-    let W, H, nodes, animFrame;
+    let W, H, particles, mouse = { x: -999, y: -999 };
+    const COUNT = 90;
+    const MAX_DIST = 140;
 
     function resize() {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        W = canvas.width = rect.width;
-        H = canvas.height = 180;
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
     }
 
-    function randomNode() {
-        const types = ['hub', 'phish', 'clean', 'unknown'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        return {
-            x: Math.random() * W,
-            y: Math.random() * H,
-            vx: (Math.random() - 0.5) * 0.4,
-            vy: (Math.random() - 0.5) * 0.4,
-            r: type === 'hub' ? 5 : Math.random() * 2.5 + 1.5,
-            type,
-            pulse: Math.random() * Math.PI * 2,
-            pulseSpeed: Math.random() * 0.04 + 0.02,
-            opacity: Math.random() * 0.5 + 0.5,
-            connections: [],
-        };
+    function Particle() {
+        this.x  = Math.random() * W;
+        this.y  = Math.random() * H;
+        this.vx = (Math.random() - 0.5) * 0.35;
+        this.vy = (Math.random() - 0.5) * 0.35;
+        this.r  = Math.random() * 1.5 + 0.5;
+        this.alpha = Math.random() * 0.4 + 0.1;
+        this.pulse = Math.random() * Math.PI * 2;
+        this.pulseSpeed = Math.random() * 0.015 + 0.005;
+        this.color = Math.random() > 0.85 ? C.CYAN : C.BLUE;
     }
 
-    function buildNodes() {
-        nodes = [];
-        const count = Math.min(Math.floor(W / 14), 40);
-        for (let i = 0; i < count; i++) nodes.push(randomNode());
-        // Force a few hubs
-        nodes[0].type = 'hub'; nodes[0].r = 5;
-        if (nodes[2]) { nodes[2].type = 'hub'; nodes[2].r = 4.5; }
-        // Build connections
-        nodes.forEach(n => {
-            n.connections = nodes
-                .filter(m => m !== n)
-                .sort((a, b) => dist(n, a) - dist(n, b))
-                .slice(0, 2);
-        });
+    function build() {
+        particles = Array.from({ length: COUNT }, () => new Particle());
     }
 
-    function dist(a, b) {
-        return Math.hypot(a.x - b.x, a.y - b.y);
-    }
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    window.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
 
-    function nodeColor(type) {
-        if (type === 'hub') return NEON;
-        if (type === 'phish') return RED;
-        if (type === 'clean') return BLUE;
-        return 'rgba(100,140,180,0.6)';
-    }
-
-    function draw(ts) {
+    function draw() {
         ctx.clearRect(0, 0, W, H);
 
         // Draw connections
-        nodes.forEach(n => {
-            n.connections.forEach(m => {
-                const d = dist(n, m);
-                if (d > W * 0.45) return;
-                const alpha = Math.max(0, 1 - d / (W * 0.45)) * 0.3;
+        for (let i = 0; i < particles.length; i++) {
+            const a = particles[i];
+            for (let j = i + 1; j < particles.length; j++) {
+                const b = particles[j];
+                const dx = a.x - b.x, dy = a.y - b.y;
+                const d  = Math.sqrt(dx * dx + dy * dy);
+                if (d > MAX_DIST) continue;
+                const alpha = (1 - d / MAX_DIST) * 0.12;
                 ctx.beginPath();
-                ctx.moveTo(n.x, n.y);
-                ctx.lineTo(m.x, m.y);
-                ctx.strokeStyle = `rgba(0, 136, 255, ${alpha})`;
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = `rgba(0, 128, 255, ${alpha})`;
                 ctx.lineWidth = 0.5;
                 ctx.stroke();
+            }
+        }
 
-                // Animated packet along edge
-                const t = ((ts * 0.0004) % 1);
-                const px = n.x + (m.x - n.x) * t;
-                const py = n.y + (m.y - n.y) * t;
-                if (Math.random() > 0.998) {
-                    ctx.beginPath();
-                    ctx.arc(px, py, 1.2, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(0, 245, 212, ${alpha * 1.5})`;
-                    ctx.fill();
-                }
-            });
-        });
+        // Mouse repulsion + draw particles
+        particles.forEach(p => {
+            p.pulse += p.pulseSpeed;
+            const glow = (Math.sin(p.pulse) + 1) / 2;
 
-        // Draw nodes
-        nodes.forEach(n => {
-            n.pulse += n.pulseSpeed;
-            const glow = Math.sin(n.pulse) * 0.5 + 0.5;
-            const color = nodeColor(n.type);
-
-            // Pulse ring for hubs / phish
-            if (n.type === 'hub' || n.type === 'phish') {
-                ctx.beginPath();
-                ctx.arc(n.x, n.y, n.r + 4 + glow * 4, 0, Math.PI * 2);
-                ctx.strokeStyle = color.replace(')', `, ${0.15 + glow * 0.12})`).replace('rgb', 'rgba').replace('#ff2d55', 'rgba(255,45,85,').replace('#00f5d4', 'rgba(0,245,212,');
-                ctx.lineWidth = 1;
-                ctx.stroke();
+            // Mouse attract
+            const mdx = mouse.x - p.x, mdy = mouse.y - p.y;
+            const md  = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (md < 120) {
+                p.vx += (mdx / md) * 0.02;
+                p.vy += (mdy / md) * 0.02;
             }
 
-            // Node fill
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-            ctx.fillStyle = color;
-            ctx.globalAlpha = n.opacity * (0.8 + glow * 0.2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
+            // Velocity cap
+            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            if (speed > 1.2) { p.vx *= 0.95; p.vy *= 0.95; }
 
-            // Move
-            n.x += n.vx;
-            n.y += n.vy;
-            if (n.x < 0 || n.x > W) n.vx *= -1;
-            if (n.y < 0 || n.y > H) n.vy *= -1;
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0 || p.x > W) p.vx *= -1;
+            if (p.y < 0 || p.y > H) p.vy *= -1;
+
+            const r  = p.r + glow * 0.8;
+            const al = p.alpha * (0.7 + glow * 0.3);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = p.color.replace(')', `, ${al})`).replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/, (_, h) =>
+                `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`);
+            ctx.fill();
         });
 
-        // Corner labels
-        ctx.font = '8px JetBrains Mono, monospace';
-        ctx.fillStyle = 'rgba(0,136,255,0.35)';
-        ctx.fillText('NODE GRAPH v1.0', 8, H - 8);
-
-        animFrame = requestAnimationFrame(draw);
+        requestAnimationFrame(draw);
     }
 
-    window.addEventListener('resize', () => {
-        cancelAnimationFrame(animFrame);
-        resize();
-        buildNodes();
-        animFrame = requestAnimationFrame(draw);
-    });
+    // Helper: hex→rgba
+    function hexToRgba(hex, a) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+    }
 
-    resize();
-    buildNodes();
-    animFrame = requestAnimationFrame(draw);
+    // Re-draw particles with proper color
+    function drawParticles() {
+        ctx.clearRect(0, 0, W, H);
+        for (let i = 0; i < particles.length; i++) {
+            const a = particles[i];
+            for (let j = i + 1; j < particles.length; j++) {
+                const b = particles[j];
+                const dx = a.x - b.x, dy = a.y - b.y;
+                const d  = Math.sqrt(dx * dx + dy * dy);
+                if (d > MAX_DIST) continue;
+                const alpha = (1 - d / MAX_DIST) * 0.12;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = `rgba(0, 128, 255, ${alpha})`;
+                ctx.lineWidth   = 0.5;
+                ctx.stroke();
+            }
+        }
+        particles.forEach(p => {
+            p.pulse += p.pulseSpeed;
+            const g  = (Math.sin(p.pulse) + 1) / 2;
+            const al = p.alpha * (0.6 + g * 0.4);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r + g * 0.7, 0, Math.PI * 2);
+            ctx.fillStyle = hexToRgba(p.color, al);
+            ctx.fill();
+
+            const mdx = mouse.x - p.x, mdy = mouse.y - p.y;
+            const md  = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (md < 120) { p.vx += (mdx / md) * 0.018; p.vy += (mdy / md) * 0.018; }
+            const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            if (sp > 1.2) { p.vx *= 0.95; p.vy *= 0.95; }
+            p.x += p.vx; p.y += p.vy;
+            if (p.x < 0 || p.x > W) p.vx *= -1;
+            if (p.y < 0 || p.y > H) p.vy *= -1;
+        });
+        requestAnimationFrame(drawParticles);
+    }
+
+    window.addEventListener('resize', () => { resize(); build(); });
+    resize(); build();
+    requestAnimationFrame(drawParticles);
 })();
 
 
 // ============================================================
-// TRIAGE VOLUME — Animated flowing bar chart
+// 2. SPARKLINES (stat card mini-charts)
+// ============================================================
+function drawSparkline(canvasId, data, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    canvas.width  = parent.offsetWidth;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const max = Math.max(...data, 1);
+    const step = W / (data.length - 1);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Fill gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, color.replace(')', ', 0.25)').replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/i, (_, h) =>
+        `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`));
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+    ctx.beginPath();
+    data.forEach((v, i) => {
+        const x = i * step;
+        const y = H - (v / max) * (H - 4) - 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.lineTo((data.length - 1) * step, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    data.forEach((v, i) => {
+        const x = i * step;
+        const y = H - (v / max) * (H - 4) - 2;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+
+    function hexToRgb(hex) {
+        const n = parseInt(hex.slice(1), 16);
+        return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
+    }
+
+    ctx.strokeStyle = `rgba(${hexToRgb(color)}, 0.8)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // End dot
+    const last = data[data.length - 1];
+    const lx   = (data.length - 1) * step;
+    const ly   = H - (last / max) * (H - 4) - 2;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+}
+
+function initSparklines() {
+    const noise = (base, range, n) =>
+        Array.from({ length: n }, () => base + (Math.random() - 0.5) * range * 2);
+
+    drawSparkline('spark-total',     noise(60, 20, 16), C.BLUE);
+    drawSparkline('spark-phish',     noise(8,  5,  16), C.RED);
+    drawSparkline('spark-kits',      noise(0,  2,  16), C.CYAN);
+    drawSparkline('spark-actors',    noise(0,  1,  16), C.CYAN);
+    drawSparkline('spark-takedowns', noise(0,  1,  16), C.ORANGE);
+
+    // Re-draw on resize
+    window.addEventListener('resize', () => {
+        drawSparkline('spark-total',     noise(60, 20, 16), C.BLUE);
+        drawSparkline('spark-phish',     noise(8,  5,  16), C.RED);
+        drawSparkline('spark-kits',      noise(0,  2,  16), C.CYAN);
+        drawSparkline('spark-actors',    noise(0,  1,  16), C.CYAN);
+        drawSparkline('spark-takedowns', noise(0,  1,  16), C.ORANGE);
+    });
+}
+
+
+// ============================================================
+// 3. RADAR THREAT CHART
+// ============================================================
+(function initRadar() {
+    const canvas = document.getElementById('radar-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const labels = ['Phish', 'Kits', 'Actors', 'IOCs', 'Takedowns', 'Volume'];
+    let values = [0.3, 0, 0, 0, 0, 0.4]; // normalized 0-1
+    let animValues = [...values];
+    let raf;
+
+    function resize() {
+        const size = Math.min(canvas.parentElement.offsetWidth, 220);
+        canvas.width = canvas.height = size;
+    }
+
+    function drawRadar(vals) {
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2;
+        const R  = Math.min(cx, cy) - 28;
+        const N  = labels.length;
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Grid rings
+        for (let ring = 1; ring <= 4; ring++) {
+            const r = (ring / 4) * R;
+            ctx.beginPath();
+            for (let i = 0; i < N; i++) {
+                const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+                const x = cx + r * Math.cos(angle);
+                const y = cy + r * Math.sin(angle);
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = `rgba(0,128,255,${0.06 + ring * 0.03})`;
+            ctx.lineWidth = 0.75;
+            ctx.stroke();
+        }
+
+        // Spokes
+        for (let i = 0; i < N; i++) {
+            const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + R * Math.cos(angle), cy + R * Math.sin(angle));
+            ctx.strokeStyle = 'rgba(0,128,255,0.12)';
+            ctx.lineWidth = 0.75;
+            ctx.stroke();
+        }
+
+        // Data shape
+        ctx.beginPath();
+        vals.forEach((v, i) => {
+            const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+            const r  = v * R;
+            const x  = cx + r * Math.cos(angle);
+            const y  = cy + r * Math.sin(angle);
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+        grad.addColorStop(0, 'rgba(0,245,212,0.3)');
+        grad.addColorStop(1, 'rgba(0,128,255,0.05)');
+        ctx.fillStyle   = grad;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,245,212,0.7)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        // Vertices
+        vals.forEach((v, i) => {
+            const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+            const r  = v * R;
+            const x  = cx + r * Math.cos(angle);
+            const y  = cy + r * Math.sin(angle);
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = C.CYAN;
+            ctx.shadowColor = C.CYAN;
+            ctx.shadowBlur  = 8;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+
+        // Labels
+        ctx.font = '7px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        labels.forEach((lbl, i) => {
+            const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+            const lr    = R + 16;
+            const x     = cx + lr * Math.cos(angle);
+            const y     = cy + lr * Math.sin(angle) + 3;
+            ctx.fillStyle = 'rgba(90,127,168,0.8)';
+            ctx.fillText(lbl.toUpperCase(), x, y);
+        });
+    }
+
+    function animate() {
+        // Lerp toward target
+        let changed = false;
+        animValues = animValues.map((v, i) => {
+            const diff = values[i] - v;
+            if (Math.abs(diff) > 0.001) { changed = true; return v + diff * 0.06; }
+            return values[i];
+        });
+        drawRadar(animValues);
+
+        // Slow autonomous animation
+        values = values.map((v, i) => {
+            const t = Date.now() * 0.0005 + i * 1.2;
+            return Math.min(1, Math.max(0.05, v + Math.sin(t) * 0.003));
+        });
+
+        raf = requestAnimationFrame(animate);
+    }
+
+    // Expose update function
+    window.updateRadar = (liveData) => {
+        const phishCount = liveData.length;
+        values[0] = Math.min(1, phishCount / 20);
+        const el = document.getElementById('radar-peak');
+        if (el) el.textContent = `${phishCount} active`;
+    };
+
+    window.addEventListener('resize', () => { resize(); });
+    resize();
+    animate();
+})();
+
+
+// ============================================================
+// 4. TRIAGE VOLUME BAR CHART
 // ============================================================
 (function initTriageChart() {
     const canvas = document.getElementById('triage-canvas');
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
-    const NEON = '#00f5d4';
-    const BLUE = '#0088ff';
-    const RED = '#ff2d55';
 
-    // Simulate rolling data
-    let data = Array.from({ length: 12 }, () => ({
-        total: Math.floor(Math.random() * 80 + 20),
-        phish: Math.floor(Math.random() * 12),
+    const N = 16;
+    let data = Array.from({ length: N }, (_, i) => ({
+        total: Math.floor(Math.random() * 120 + 30),
+        phish: Math.floor(Math.random() * 15),
+        label: `T-${N - i}`,
     }));
 
-    let targetData = [...data];
-    let animProg = 1;
+    // Animate in from 0
+    let prog = 0;
+    const ANIM_DURATION = 1000;
+    const ANIM_START = Date.now();
 
     function resize() {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = 80;
+        const parent = canvas.parentElement;
+        canvas.width  = parent.offsetWidth;
+        canvas.height = 160;
     }
 
-    function lerp(a, b, t) { return a + (b - a) * t; }
-
     function draw() {
-        const W = canvas.width, H = canvas.height;
+        const t  = Math.min((Date.now() - ANIM_START) / ANIM_DURATION, 1);
+        const ep = 1 - Math.pow(1 - t, 3); // ease out cubic
+
+        const W  = canvas.width, H = canvas.height;
+        const PAD_LEFT = 28, PAD_RIGHT = 8, PAD_TOP = 8, PAD_BOT = 20;
+        const chartW = W - PAD_LEFT - PAD_RIGHT;
+        const chartH = H - PAD_TOP - PAD_BOT;
+
         ctx.clearRect(0, 0, W, H);
 
-        const barCount = data.length;
-        const gap = 3;
-        const barW = (W - gap * (barCount - 1)) / barCount;
-        const maxVal = Math.max(...data.map(d => d.total), 1);
+        const max  = Math.max(...data.map(d => d.total), 1);
+        const barW = Math.floor(chartW / N) - 2;
+        const gap  = Math.floor(chartW / N);
+
+        // Horizontal grid lines
+        for (let g = 0; g <= 4; g++) {
+            const y = PAD_TOP + chartH - (g / 4) * chartH;
+            ctx.beginPath();
+            ctx.moveTo(PAD_LEFT, y);
+            ctx.lineTo(W - PAD_RIGHT, y);
+            ctx.strokeStyle = `rgba(0,128,255,${g === 0 ? 0.2 : 0.06})`;
+            ctx.lineWidth = g === 0 ? 1 : 0.5;
+            ctx.stroke();
+            if (g > 0) {
+                ctx.font = '7px JetBrains Mono, monospace';
+                ctx.fillStyle = 'rgba(0,128,255,0.3)';
+                ctx.textAlign = 'right';
+                ctx.fillText(Math.round((g / 4) * max), PAD_LEFT - 3, y + 3);
+            }
+        }
 
         data.forEach((d, i) => {
-            const x = i * (barW + gap);
-            const totalH = (d.total / maxVal) * (H - 16);
-            const phishH = (d.phish / maxVal) * (H - 16);
-            const y = H - totalH;
+            const x       = PAD_LEFT + i * gap;
+            const totalH  = (d.total / max) * chartH * ep;
+            const phishH  = (d.phish / max) * chartH * ep;
+            const baseY   = PAD_TOP + chartH;
 
-            // Base bar (clean)
-            const grad = ctx.createLinearGradient(0, y, 0, H);
-            grad.addColorStop(0, `rgba(0,136,255,0.5)`);
-            grad.addColorStop(1, `rgba(0,136,255,0.05)`);
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, y, barW, totalH);
+            // Total bar
+            const gTotal = ctx.createLinearGradient(0, baseY - totalH, 0, baseY);
+            gTotal.addColorStop(0, 'rgba(0,128,255,0.7)');
+            gTotal.addColorStop(1, 'rgba(0,128,255,0.08)');
+            ctx.fillStyle = gTotal;
+            ctx.fillRect(x, baseY - totalH, barW, totalH);
 
             // Phish overlay
             if (d.phish > 0) {
-                const py = H - phishH;
-                const pGrad = ctx.createLinearGradient(0, py, 0, H);
-                pGrad.addColorStop(0, `rgba(255,45,85,0.7)`);
-                pGrad.addColorStop(1, `rgba(255,45,85,0.1)`);
-                ctx.fillStyle = pGrad;
-                ctx.fillRect(x, py, barW, phishH);
+                const gPhish = ctx.createLinearGradient(0, baseY - phishH, 0, baseY);
+                gPhish.addColorStop(0, 'rgba(255,45,85,0.85)');
+                gPhish.addColorStop(1, 'rgba(255,45,85,0.15)');
+                ctx.fillStyle = gPhish;
+                ctx.fillRect(x, baseY - phishH, barW, phishH);
             }
 
-            // Top cap line
-            ctx.fillStyle = i === barCount - 1 ? NEON : BLUE;
-            ctx.globalAlpha = i === barCount - 1 ? 0.9 : 0.5;
-            ctx.fillRect(x, y, barW, 1.5);
-            ctx.globalAlpha = 1;
+            // Top cap
+            const isLast = i === data.length - 1;
+            ctx.fillStyle = isLast ? C.CYAN : 'rgba(0,128,255,0.6)';
+            if (totalH > 0) ctx.fillRect(x, baseY - totalH, barW, 2);
         });
 
-        // Axis line
-        ctx.fillStyle = 'rgba(0,136,255,0.15)';
-        ctx.fillRect(0, H - 1, W, 1);
-
-        // Labels
+        // Legend
         ctx.font = '7px JetBrains Mono, monospace';
-        ctx.fillStyle = 'rgba(0,136,255,0.4)';
-        ctx.fillText('PHISH', 2, 10);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(0,128,255,0.4)';
+        ctx.fillText('■ TOTAL', W - 80, PAD_TOP + 10);
         ctx.fillStyle = 'rgba(255,45,85,0.5)';
-        ctx.fillText('▬', 32, 10);
+        ctx.fillText('■ PHISH', W - 80, PAD_TOP + 20);
+
+        if (t < 1) requestAnimationFrame(draw);
     }
 
-    // Rolling update every 5 seconds
+    // Roll data every 6 seconds
     setInterval(() => {
         data.shift();
         data.push({
-            total: Math.floor(Math.random() * 80 + 20),
-            phish: Math.floor(Math.random() * 12),
+            total: Math.floor(Math.random() * 120 + 30),
+            phish: Math.floor(Math.random() * 15),
         });
+        resize();
         draw();
-    }, 5000);
+    }, 6000);
 
     window.addEventListener('resize', () => { resize(); draw(); });
-
     resize();
-    draw();
-
-    // Animate bars in on load
-    let prog = 0;
-    const intro = setInterval(() => {
-        prog = Math.min(prog + 0.08, 1);
-        data = data.map(d => ({
-            total: Math.round(d.total * prog),
-            phish: Math.round(d.phish * prog),
-        }));
-        draw();
-        if (prog >= 1) clearInterval(intro);
-    }, 30);
+    requestAnimationFrame(draw);
 })();
 
 
 // ============================================================
-// BRAND TARGETING METER — from live feed data
+// 5. BRAND TARGETING METER
 // ============================================================
-async function buildBrandMeter() {
+const BRAND_COLORS = [C.RED, C.ORANGE, C.YELLOW, C.CYAN, C.BLUE, C.PURPLE, C.GREEN];
+
+window.updateBrandMeter = function(liveData) {
     const container = document.getElementById('brand-meter');
     if (!container) return;
 
-    // Fetch live data
-    let brands = {};
+    const brands = {};
+    liveData.forEach(f => {
+        if (f.brand) brands[f.brand] = (brands[f.brand] || 0) + 1;
+    });
+
+    if (Object.keys(brands).length === 0) {
+        container.innerHTML = `<div class="bm-item"><span class="bm-name" style="color:var(--t-muted)">no data</span></div>`;
+        return;
+    }
+
+    const sorted  = Object.entries(brands).sort((a, b) => b[1] - a[1]).slice(0, 7);
+    const maxCount = sorted[0][1];
+
+    container.innerHTML = sorted.map(([name, count], i) => {
+        const pct = Math.round((count / maxCount) * 100);
+        return `
+        <div class="bm-item">
+            <span class="bm-name">${name}</span>
+            <div class="bm-track">
+                <div class="bm-fill" style="width:0%;background:${BRAND_COLORS[i % BRAND_COLORS.length]}" data-pct="${pct}"></div>
+            </div>
+            <span class="bm-count">${count}</span>
+        </div>`;
+    }).join('');
+
+    // Animate bars
+    requestAnimationFrame(() => {
+        container.querySelectorAll('.bm-fill').forEach(el => {
+            el.style.width = el.dataset.pct + '%';
+        });
+    });
+};
+
+// ============================================================
+// 6. BOOT: Fallback brand meter from API if no live data yet
+// ============================================================
+async function bootCharts() {
+    initSparklines();
+
     try {
         const res = await fetch('/api/feeds/live');
         if (res.ok) {
             const data = await res.json();
-            data.forEach(f => {
-                if (f.brand) brands[f.brand] = (brands[f.brand] || 0) + 1;
-            });
+            if (data && data.length > 0) {
+                window.updateBrandMeter(data);
+                if (window.updateRadar) window.updateRadar(data);
+            }
         }
     } catch (_) {}
-
-    // Fallback if empty
-    if (Object.keys(brands).length === 0) {
-        container.innerHTML = '<div class="meter-item"><div class="meter-label"><span class="name" style="color:var(--text-dim);font-family:var(--font-mono);font-size:0.68rem">awaiting data...</span></div></div>';
-        return;
-    }
-
-    const sorted = Object.entries(brands).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const maxCount = sorted[0][1];
-
-    const COLORS = ['#ff2d55', '#ff6b35', '#ffcc00', '#00f5d4', '#0088ff', '#a78bfa'];
-    container.innerHTML = sorted.map(([name, count], i) => {
-        const pct = Math.round((count / maxCount) * 100);
-        return `
-        <div class="meter-item">
-            <div class="meter-label">
-                <span class="name">${name}</span>
-                <span class="count">${count}</span>
-            </div>
-            <div class="meter-bar">
-                <div class="meter-fill" style="width:0%;background:${COLORS[i % COLORS.length]}" data-pct="${pct}"></div>
-            </div>
-        </div>`;
-    }).join('');
-
-    // Animate bars in
-    requestAnimationFrame(() => {
-        container.querySelectorAll('.meter-fill').forEach(el => {
-            el.style.transition = 'width 1.2s cubic-bezier(0.4,0,0.2,1)';
-            el.style.width = el.dataset.pct + '%';
-        });
-    });
 }
 
-// Also refresh brand meter when live feed loads
-document.addEventListener('DOMContentLoaded', () => {
-    buildBrandMeter();
-    // Re-build every 30s in sync with main dashboard refresh
-    setInterval(buildBrandMeter, 30000);
-});
+document.addEventListener('DOMContentLoaded', bootCharts);
