@@ -117,7 +117,7 @@ class Settings(BaseSettings):
     )
 
     # ---- takedown ---------------------------------------------------------
-    takedown_from_email: str = Field(default="abuse-reports@yourdomain")
+    takedown_from_email: str = Field(default="security@heapleap.tech")
     takedown_dry_run: bool = Field(
         default=True, description="If true, generate reports but do not send."
     )
