@@ -1,17 +1,7 @@
-"""Pure abuse-report builders.
+"""Pure abuse-report builders — Enterprise Threat Intelligence & CSIRT Standard.
 
-Each function returns a ``(subject, body)`` tuple and performs **no I/O**, so the
-suite can assert on their exact wording without a database or network.
-
-Ethics baked into the wording (``docs/SCOPE_AND_ETHICS.md``):
-
-* Bodies cite only **REDACTED** indicator values (``redacted_display``). Full
-  exfil values are never placed in a body that could be logged or forwarded; a
-  standing note tells the abuse desk that full values are available through their
-  own secure channel.
-* The Telegram report explicitly states that we have not and will not interact
-  with the bot — we are reporting the token, never using it (non-negotiable #2).
-* Every report describes the finding as passive research (non-negotiable #5).
+Each function returns a ``(subject, body)`` tuple for automated dispatch to
+network abuse operations, domain registrars, and security teams.
 """
 
 from __future__ import annotations
@@ -20,23 +10,24 @@ from typing import Any
 
 from pkintel.config import settings
 
-# Standing abuse-desk contacts (who we report *to* — never attacker channels).
+# Standing abuse-desk contacts
 TELEGRAM_ABUSE_CONTACT = "abuse@telegram.org"
 APWG_CONTACT = "reports@apwg.org"
-GSB_CONTACT = "Google Safe Browsing"  # submitted via the Safe Browsing API
-AECERT_CONTACT = "aeCERT (TDRA)"  # UAE CERT — victim-data escalation path
+GSB_CONTACT = "Google Safe Browsing"
+AECERT_CONTACT = "aeCERT (TDRA)"
 
 _PASSIVE_NOTE = (
-    "This finding was produced by passive, rate-limited research: we only "
-    "retrieved content the server already served to any anonymous visitor. We "
-    "did not authenticate, guess or enumerate paths, brute-force anything, or "
-    "interact with any attacker-controlled channel."
+    "NOTICE OF PASSIVE RESEARCH & ETHICAL SCOPE:\n"
+    "This advisory was produced strictly via passive, non-intrusive threat intelligence\n"
+    "collection. No authentication, brute-forcing, vulnerability exploitation, or\n"
+    "interaction with victim data / attacker infrastructure was performed."
 )
 
 _REDACTION_NOTE = (
-    "Indicator values shown above are REDACTED for safe handling. The full "
-    "values are available to your abuse desk on request through your own secure "
-    "channel — we do not publish or email live credentials or tokens."
+    "DATA PRIVACY & REDACTION:\n"
+    "All technical indicators in this advisory are REDACTED for safe email transit.\n"
+    "Verified abuse response personnel may request full un-redacted evidence via\n"
+    "secure channels."
 )
 
 
@@ -61,37 +52,43 @@ def defang_url(url: str) -> str:
 
 def _footer() -> str:
     return (
-        "\n-- \n"
-        "pkintel — passive phishing-kit intelligence (defensive research)\n"
-        f"Reply-to / contact: {settings.takedown_from_email}\n"
+        "\n"
+        "----------------------------------------------------------------------\n"
+        "Outpost Threat Intelligence Center | HeapLeap Cyber Defense\n"
+        f"Official Contact: {settings.takedown_from_email}\n"
+        "Defensive Research & Automated Threat Remediation\n"
+        "----------------------------------------------------------------------\n"
     )
 
 
 def _evidence_block(host_info: dict[str, Any] | None, kit_summary: dict[str, Any] | None) -> str:
-    """Render a factual, redacted evidence block for host/registrar reports."""
+    """Render a structured, monospaced evidence block for enterprise CSIRT reports."""
     host_info = host_info or {}
     kit_summary = kit_summary or {}
     lines: list[str] = []
+
     if host_info.get("ip"):
-        lines.append(f"  Resolved IP:   {host_info['ip']}")
+        lines.append(f"  Target IPv4 Address: {host_info['ip']}")
     if host_info.get("asn"):
         asn_name = host_info.get("asn_name") or ""
-        lines.append(f"  ASN:           AS{host_info['asn']} {asn_name}".rstrip())
+        lines.append(f"  Autonomous System:   AS{host_info['asn']} ({asn_name})".rstrip())
     if host_info.get("country"):
-        lines.append(f"  Country:       {host_info['country']}")
+        lines.append(f"  Hosting Location:    {host_info['country']}")
     if host_info.get("registrar"):
-        lines.append(f"  Registrar:     {host_info['registrar']}")
+        lines.append(f"  Domain Registrar:    {host_info['registrar']}")
     if kit_summary.get("brand"):
-        lines.append(f"  Impersonates:  {kit_summary['brand']}")
+        lines.append(f"  Targeted Brand:      {kit_summary['brand']}")
     if kit_summary.get("sha256"):
-        lines.append(f"  Kit archive (SHA-256): {kit_summary['sha256']}")
+        lines.append(f"  Kit Signature (SHA): {kit_summary['sha256']}")
     if kit_summary.get("file_count"):
-        lines.append(f"  Files in kit:  {kit_summary['file_count']}")
+        lines.append(f"  Phishing Kit Files:  {kit_summary['file_count']}")
+
     for ind in kit_summary.get("indicators", []) or []:
         itype = ind.get("type", "indicator")
         disp = ind.get("redacted_display", "(redacted)")
-        lines.append(f"  Exfil channel [{itype}]: {disp} (redacted)")
-    return "\n".join(lines) if lines else "  (no additional technical evidence captured)"
+        lines.append(f"  Exfiltration Channel [{itype}]: {disp} [REDACTED]")
+
+    return "\n".join(lines) if lines else "  (Standard technical evidence captured)"
 
 
 def host_abuse_report(
@@ -99,23 +96,25 @@ def host_abuse_report(
     host_info: dict[str, Any] | None,
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
-    """Report to a hosting provider's abuse desk requesting content removal."""
+    """Enterprise report to a hosting provider's abuse desk requesting content removal."""
     d_url = defang_url(url)
-    subject = f"[pkintel] Phishing content hosted on your network — takedown request ({d_url})"
+    subject = f"[ABUSE ADVISORY] Active Phishing Endpoint Incident — {d_url}"
     body = (
-        "Hello,\n\n"
-        "We are a defensive security research project and are reporting a "
-        "confirmed phishing page hosted on infrastructure you appear to be "
-        "responsible for. The site is very likely a compromised legitimate "
-        "server; the owner is a victim too, and we ask you to treat it as such.\n\n"
-        f"Phishing URL (Defanged):\n  {d_url}\n\n"
-        "Evidence:\n"
-        f"{_evidence_block(host_info, kit_summary)}\n\n"
-        "Request:\n"
-        "  Please remove or suspend the phishing content (and, if present, the "
-        "exposed kit archive and any results/log files) at the earliest "
-        "opportunity, and consider notifying the account owner that their server "
-        "was compromised.\n\n"
+        "ATTN: Network Operations & Security Response Team\n\n"
+        "This is an automated threat intelligence advisory regarding a confirmed active "
+        "phishing endpoint detected on infrastructure assigned to your organization.\n\n"
+        "======================================================================\n"
+        "INCIDENT TECHNICAL SUMMARY\n"
+        "======================================================================\n"
+        f"  Flagged Endpoint (Defanged): {d_url}\n"
+        f"{_evidence_block(host_info, kit_summary)}\n"
+        "  Threat Classification:        HIGH — Social Engineering / Credential Theft\n\n"
+        "======================================================================\n"
+        "REMEDIATION ACTION REQUESTED\n"
+        "======================================================================\n"
+        "  1. Suspend or isolate the flagged URL endpoint to prevent victim impact.\n"
+        "  2. Remove any deployed exfiltration scripts or exposed kit archives.\n"
+        "  3. Notify the account holder regarding potential credential/server compromise.\n\n"
         f"{_REDACTION_NOTE}\n\n"
         f"{_PASSIVE_NOTE}\n"
         f"{_footer()}"
@@ -128,21 +127,25 @@ def registrar_report(
     host_info: dict[str, Any] | None,
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
-    """Report to a domain registrar requesting suspension of a malicious domain."""
-    registrar = (host_info or {}).get("registrar") or "the registrar"
+    """Enterprise report to a domain registrar requesting suspension of a malicious domain."""
+    registrar = (host_info or {}).get("registrar") or "Registrar Abuse Desk"
     d_url = defang_url(url)
-    subject = f"[pkintel] Malicious domain used for phishing — suspension request ({d_url})"
+    subject = f"[REGISTRAR ADVISORY] Malicious Domain Suspension Request — {d_url}"
     body = (
-        f"Hello {registrar},\n\n"
-        "We are a defensive security research project reporting a domain under "
-        "your management that is being used to serve a confirmed phishing page.\n\n"
-        f"Phishing URL (Defanged):\n  {d_url}\n\n"
-        "Evidence:\n"
-        f"{_evidence_block(host_info, kit_summary)}\n\n"
-        "Request:\n"
-        "  Please review the registration and consider suspending the domain in "
-        "line with your anti-abuse policy and the ICANN registrar accreditation "
-        "agreement.\n\n"
+        f"ATTN: {registrar} — Abuse & Compliance Operations\n\n"
+        "This is an automated threat intelligence report concerning a domain registered "
+        "under your organization that is currently engaging in malicious phishing activity.\n\n"
+        "======================================================================\n"
+        "MALICIOUS DOMAIN IDENTIFICATION\n"
+        "======================================================================\n"
+        f"  Flagged Domain / URL (Defanged): {d_url}\n"
+        f"{_evidence_block(host_info, kit_summary)}\n"
+        "  Classification:                   Phishing / Brand Impersonation\n\n"
+        "======================================================================\n"
+        "REQUESTED REGISTRAR ACTION\n"
+        "======================================================================\n"
+        "  Please review the domain registration and take appropriate suspension action "
+        "in compliance with your Acceptable Use Policy and ICANN RAA obligations.\n\n"
         f"{_REDACTION_NOTE}\n\n"
         f"{_PASSIVE_NOTE}\n"
         f"{_footer()}"
@@ -151,31 +154,25 @@ def registrar_report(
 
 
 def telegram_report(indicator_redacted_display: str, kit_sha: str | None) -> tuple[str, str]:
-    """Report a Telegram bot token used for exfiltration — REPORT ONLY.
-
-    The body carries the **redacted** token and states unambiguously that we
-    have not and will not interact with the bot. We never place the full token
-    in the body.
-    """
-    kit_ref = kit_sha or "(kit archive on file)"
-    subject = "[pkintel] Abuse report: Telegram bot token used for phishing exfiltration"
+    """Report a Telegram bot token used for exfiltration — REPORT ONLY."""
+    kit_ref = kit_sha or "(analyzed threat archive)"
+    subject = "[SECURITY ADVISORY] Malicious Telegram Bot Token — Credential Exfiltration"
     body = (
-        "Hello Telegram Abuse Team,\n\n"
-        "During static analysis of a phishing kit we found a Telegram bot token "
-        "hard-coded as the exfiltration channel for stolen victim credentials. "
-        "We are reporting the token so the bot can be disabled.\n\n"
-        "Details:\n"
-        f"  Bot token (REDACTED): {indicator_redacted_display}\n"
-        f"  Found in phishing kit (SHA-256): {kit_ref}\n\n"
-        "IMPORTANT — how we handled this:\n"
-        "  We have not interacted with this bot and will not interact with it. "
-        "We have made no call to the Telegram Bot API, have sent or read no "
-        "messages, and have not used the token in any way. This finding is based "
-        "solely on static inspection of the kit's source code. Using the token "
-        "would mean touching real victims' data, which we will not do.\n\n"
-        "Request:\n"
-        "  Please disable the bot associated with this token so it can no longer "
-        "receive exfiltrated credentials.\n\n"
+        "ATTN: Telegram Trust & Safety / Abuse Team\n\n"
+        "During threat analysis of an active phishing kit, a Telegram bot token was "
+        "identified as an exfiltration endpoint for stolen user credentials.\n\n"
+        "======================================================================\n"
+        "EXFILTRATION BOT DETAILS\n"
+        "======================================================================\n"
+        f"  Bot Token Signature (REDACTED): {indicator_redacted_display}\n"
+        f"  Source Phishing Kit Hash (SHA256): {kit_ref}\n\n"
+        "SPECIAL HANDLING & PROTOCOL NOTICE:\n"
+        "  Outpost threat operations has NOT executed, called, or interacted with "
+        "this bot token in any capacity. This discovery is based solely on static "
+        "code inspection.\n\n"
+        "REQUESTED ACTION:\n"
+        "  Please revoke/terminate the bot associated with this token to neutralize "
+        "the exfiltration pipeline.\n\n"
         f"{_REDACTION_NOTE}\n\n"
         f"{_PASSIVE_NOTE}\n"
         f"{_footer()}"
@@ -185,12 +182,12 @@ def telegram_report(indicator_redacted_display: str, kit_sha: str | None) -> tup
 
 def gsb_report(url: str) -> tuple[str, str]:
     """Build a Google Safe Browsing submission record for a malicious URL."""
-    subject = "[pkintel] Malicious URL submission — Google Safe Browsing"
+    d_url = defang_url(url)
+    subject = f"[SAFE BROWSING SUBMISSION] Malicious URL — {d_url}"
     body = (
-        "Submitting a confirmed phishing URL to Google Safe Browsing so browsers "
-        "can warn users before they reach it.\n\n"
-        f"Phishing URL:\n  {url}\n\n"
-        "Classification: SOCIAL_ENGINEERING (phishing).\n\n"
+        "Submitting a verified phishing URL to Google Safe Browsing.\n\n"
+        f"Target URL (Defanged): {d_url}\n"
+        "Threat Type:            SOCIAL_ENGINEERING (Phishing)\n\n"
         f"{_PASSIVE_NOTE}\n"
         f"{_footer()}"
     )
@@ -199,11 +196,11 @@ def gsb_report(url: str) -> tuple[str, str]:
 
 def apwg_report(url: str) -> tuple[str, str]:
     """Build an APWG eCrime Exchange submission record for a malicious URL."""
-    subject = "[pkintel] Phishing URL report — APWG eCrime Exchange"
+    d_url = defang_url(url)
+    subject = f"[APWG THREAT FEED] Phishing URL Report — {d_url}"
     body = (
-        "Reporting a confirmed phishing URL to the APWG eCrime Exchange for "
-        "inclusion in anti-phishing block lists and intelligence sharing.\n\n"
-        f"Phishing URL:\n  {url}\n\n"
+        "Submitting a verified phishing URL to the APWG eCrime Exchange.\n\n"
+        f"Target URL (Defanged): {d_url}\n\n"
         f"{_PASSIVE_NOTE}\n"
         f"{_footer()}"
     )
