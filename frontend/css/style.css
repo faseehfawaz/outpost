@@ -568,7 +568,27 @@ body {
     color: var(--t-dim);
 }
 
-.panel-body { flex: 1; overflow: auto; }
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 620px;
+}
+
+/* ---- CUSTOM SCROLLBARS ---- */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.4);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 65, 0.25);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--cyan);
+}
 
 /* ---- LIVE DOT ---- */
 .live-dot {
@@ -697,7 +717,7 @@ body {
 ============================================================ */
 .activity-feed {
     padding: 0;
-    max-height: 480px;
+    max-height: 620px;
     overflow-y: auto;
 }
 
