@@ -5,7 +5,7 @@ description = "Phishing-kit intelligence pipeline: ingest, triage, opportunistic
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "PROJECT ONE" }]
+authors = [{ name = "Faseeh Padinjarathil", email = "security@heapleap.tech" }]
 
 dependencies = [
     "httpx[http2]>=0.27",
