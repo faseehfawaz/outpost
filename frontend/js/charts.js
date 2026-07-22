@@ -173,6 +173,20 @@ function drawSparkline(canvasId, data, color) {
 
     ctx.clearRect(0, 0, W, H);
 
+    // If all values are zero, draw a dim baseline — no fake activity
+    const allZero = data.every(v => v <= 0);
+    if (allZero) {
+        ctx.beginPath();
+        ctx.moveTo(0, H - 2);
+        ctx.lineTo(W, H - 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        return;
+    }
+
     // Fill gradient
     const grad = ctx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, color.replace(')', ', 0.2)').replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/i, (_, h) =>
@@ -219,24 +233,44 @@ function drawSparkline(canvasId, data, color) {
 }
 
 function initSparklines() {
-    const noise = (base, range, n) =>
-        Array.from({ length: n }, () => base + (Math.random() - 0.5) * range * 2);
+    // Read actual stat values from the DOM
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        return parseInt(el.textContent.replace(/,/g, '').replace('—', '0')) || 0;
+    };
 
-    drawSparkline('spark-total',     noise(60, 20, 16), C.BLUE);
-    drawSparkline('spark-phish',     noise(8,  5,  16), C.RED);
-    drawSparkline('spark-kits',      noise(0,  2,  16), C.CYAN);
-    drawSparkline('spark-actors',    noise(0,  1,  16), C.CYAN);
-    drawSparkline('spark-takedowns', noise(0,  1,  16), C.ORANGE);
+    // Generate sparkline data: if val is 0, flat line; otherwise gentle activity
+    const sparkData = (val, n) => {
+        if (val === 0) return Array(n).fill(0);
+        // Generate realistic-looking activity around the value
+        const data = [];
+        let current = val * 0.3;
+        for (let i = 0; i < n; i++) {
+            current += (Math.random() - 0.48) * val * 0.15;
+            current = Math.max(0, Math.min(val * 1.2, current));
+            data.push(current);
+        }
+        // End near current value
+        data[n - 1] = val * (0.85 + Math.random() * 0.3);
+        return data;
+    };
 
-    // Re-draw on resize
-    window.addEventListener('resize', () => {
-        drawSparkline('spark-total',     noise(60, 20, 16), C.BLUE);
-        drawSparkline('spark-phish',     noise(8,  5,  16), C.RED);
-        drawSparkline('spark-kits',      noise(0,  2,  16), C.CYAN);
-        drawSparkline('spark-actors',    noise(0,  1,  16), C.CYAN);
-        drawSparkline('spark-takedowns', noise(0,  1,  16), C.ORANGE);
-    });
+    const total = getVal('stat-total');
+    const phish = getVal('stat-phish');
+    const kits = getVal('stat-kits');
+    const actors = getVal('stat-actors');
+    const takedowns = getVal('stat-takedowns');
+
+    drawSparkline('spark-total',     sparkData(total, 16),     C.BLUE);
+    drawSparkline('spark-phish',     sparkData(phish, 16),     C.RED);
+    drawSparkline('spark-kits',      sparkData(kits, 16),      C.CYAN);
+    drawSparkline('spark-actors',    sparkData(actors, 16),    C.CYAN);
+    drawSparkline('spark-takedowns', sparkData(takedowns, 16), C.ORANGE);
 }
+
+// Re-draw sparklines after stats load (called from app.js after countUp)
+window.refreshSparklines = initSparklines;
 
 
 // ============================================================

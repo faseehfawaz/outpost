@@ -171,6 +171,9 @@ async function initDashboard() {
     await loadStats();
     await Promise.all([loadLive(), loadRecent()]);
 
+    // Refresh sparklines after real data is loaded
+    setTimeout(() => { if (window.refreshSparklines) window.refreshSparklines(); }, 1500);
+
     // Auto-refresh
     let cd = 30;
     const timer = document.getElementById('refresh-timer');
@@ -178,7 +181,9 @@ async function initDashboard() {
         cd--;
         if (cd <= 0) {
             cd = 30;
-            loadStats();
+            loadStats().then(() => {
+                setTimeout(() => { if (window.refreshSparklines) window.refreshSparklines(); }, 1500);
+            });
             loadLive();
             loadRecent();
         }

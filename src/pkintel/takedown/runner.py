@@ -46,15 +46,23 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
             # Enrich host via RDAP/WHOIS
             host_info = enrich_host(host)
 
-            # Check if this URL has an associated kit (optional)
-            kit_query = """
-                SELECT k.id, k.sha256 
-                FROM kits k 
-                WHERE k.id = (SELECT kit_id FROM urls WHERE id = %s LIMIT 1)
-            """
-            kits = fetch_all(kit_query, (url_id,))
-            kit_id = kits[0]["id"] if kits else None
-            kit_sha = kits[0]["sha256"] if kits else None
+            # Check if this URL has an associated kit (optional — kits.url_id → urls.id)
+            kit_id = None
+            kit_sha = None
+            try:
+                kit_query = """
+                    SELECT k.id, k.sha256 
+                    FROM kits k 
+                    WHERE k.url_id = %s
+                    LIMIT 1
+                """
+                kits = fetch_all(kit_query, (url_id,))
+                if kits:
+                    kit_id = kits[0]["id"]
+                    kit_sha = kits[0]["sha256"]
+            except Exception:
+                pass  # No kit — that's fine, proceed without it
+
             kit_summary = {"sha256": kit_sha, "count": 1 if kit_id else 0}
 
             # 1. Host Abuse Report — always generated
@@ -130,7 +138,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
                 "UPDATE takedowns SET status = 'sent', sent_at = now() WHERE id = %s", (draft_id,)
             )
             processed_count += 1
-            record_audit("takedown_sent", {"takedown_id": draft_id, "contact": contact})
+            record_audit("takedown", "sent", contact, takedown_id=draft_id)
 
         except Exception as e:
             log.exception("Failed to send takedown %s: %s", draft_id, e)
