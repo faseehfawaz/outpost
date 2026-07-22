@@ -168,8 +168,32 @@ async function initDashboard() {
         }).join('');
     };
 
+    const loadTakedowns = async () => {
+        const data = await API.get('/feeds/takedowns');
+        const tbody = document.getElementById('takedown-log-body');
+        const empty = document.getElementById('takedown-empty');
+        if (!tbody) return;
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        tbody.innerHTML = data.map(t => `
+            <tr>
+                <td class="mono" style="color:var(--cyan)">${t.contact || 'abuse@provider'}</td>
+                <td><span class="tag">${t.target_type || 'host'}</span></td>
+                <td style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${t.subject || ''}">${t.subject || 'Phishing Takedown Notice'}</td>
+                <td class="td-url">${U.defang(t.url || '—')}</td>
+                <td><span class="status-live" style="color:var(--orange)"><span class="live-dot" style="background:var(--orange)"></span> ${t.status ? t.status.toUpperCase() : 'SENT'}</span></td>
+            </tr>
+        `).join('');
+    };
+
     await loadStats();
-    await Promise.all([loadLive(), loadRecent()]);
+    await Promise.all([loadLive(), loadRecent(), loadTakedowns()]);
 
     // Refresh sparklines after real data is loaded
     setTimeout(() => { if (window.refreshSparklines) window.refreshSparklines(); }, 1500);
@@ -186,6 +210,7 @@ async function initDashboard() {
             });
             loadLive();
             loadRecent();
+            loadTakedowns();
         }
         if (timer) timer.textContent = `next refresh ${cd}s`;
     }, 1000);

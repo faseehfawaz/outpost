@@ -54,3 +54,18 @@ async def get_recent_triaged() -> list[dict[str, Any]]:
         LIMIT 50
     """
     return fetch_all(query)
+
+
+@router.get("/takedowns")
+async def get_takedown_logs() -> list[dict[str, Any]]:
+    """
+    Get recent sent takedown email logs.
+    """
+    query = """
+        SELECT t.id, t.target_type, t.contact, t.subject, t.body, t.status, t.sent_at, u.url
+        FROM takedowns t
+        LEFT JOIN urls u ON t.url_id = u.id
+        ORDER BY t.sent_at DESC NULLS LAST, t.id DESC
+        LIMIT 50
+    """
+    return fetch_all(query)
