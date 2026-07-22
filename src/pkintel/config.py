@@ -121,6 +121,14 @@ class Settings(BaseSettings):
     takedown_dry_run: bool = Field(
         default=True, description="If true, generate reports but do not send."
     )
+    takedown_override_recipient: str = Field(
+        default="", description="Redirect all outbound takedowns to this email for testing."
+    )
+    smtp_host: str = Field(default="", description="SMTP server host, e.g. smtp.gmail.com")
+    smtp_port: int = Field(default=587, description="SMTP server port (587 for TLS, 465 for SSL)")
+    smtp_user: str = Field(default="", description="SMTP login username")
+    smtp_pass: str = Field(default="", description="SMTP login password / app password")
+    smtp_use_tls: bool = Field(default=True)
     gsb_api_key: str = Field(default="", description="Google Safe Browsing")
 
     # ---- feeds (all optional; empty => adapter is skipped) ----------------

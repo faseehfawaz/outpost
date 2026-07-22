@@ -10,6 +10,7 @@ Phase 2: Sends draft takedowns (respecting dry-run settings).
 from pkintel.config import settings
 from pkintel.db import claim_rows, execute, fetch_all, record_audit
 from pkintel.logging import get_logger
+from pkintel.takedown.mailer import send_takedown_email
 from pkintel.takedown.rdap import enrich_host
 from pkintel.takedown.templates import host_abuse_report, registrar_report, telegram_report
 
@@ -127,18 +128,22 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
         draft_id = draft["id"]
         contact = draft.get("contact")
 
+        subject = draft.get("subject", "Phishing Takedown Notice")
+        body = draft.get("body", "")
+
         try:
             if settings.takedown_dry_run:
-                log.info("DRY RUN: Sending takedown %s to %s", draft_id, contact)
+                log.info("DRY RUN: Would send takedown %s to %s", draft_id, contact)
+                actual_target = contact
             else:
-                log.info("Sending takedown %s to %s", draft_id, contact)
-                # Actual delivery logic goes here (e.g., SMTP)
+                log.info("Sending takedown %s via SMTP", draft_id)
+                actual_target = send_takedown_email(contact, subject, body)
 
             execute(
                 "UPDATE takedowns SET status = 'sent', sent_at = now() WHERE id = %s", (draft_id,)
             )
             processed_count += 1
-            record_audit("takedown", "sent", contact, takedown_id=draft_id)
+            record_audit("takedown", "sent", actual_target, takedown_id=draft_id)
 
         except Exception as e:
             log.exception("Failed to send takedown %s: %s", draft_id, e)
