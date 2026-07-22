@@ -1,7 +1,7 @@
-"""Pure abuse-report builders — Enterprise Threat Intelligence & CSIRT Standard.
+"""Pure abuse-report builders — Clean, Natural Security Notification Standard.
 
-Each function returns a ``(subject, body)`` tuple for automated dispatch to
-network abuse operations, domain registrars, and security teams.
+Designed to pass email spam filters (no all-caps triggers, no ASCII art lines,
+no URLs in subject lines, and clean human-readable defanging).
 """
 
 from __future__ import annotations
@@ -16,30 +16,16 @@ APWG_CONTACT = "reports@apwg.org"
 GSB_CONTACT = "Google Safe Browsing"
 AECERT_CONTACT = "aeCERT (TDRA)"
 
-_PASSIVE_NOTE = (
-    "NOTICE OF PASSIVE RESEARCH & ETHICAL SCOPE:\n"
-    "This advisory was produced strictly via passive, non-intrusive threat intelligence\n"
-    "collection. No authentication, brute-forcing, vulnerability exploitation, or\n"
-    "interaction with victim data / attacker infrastructure was performed."
-)
-
-_REDACTION_NOTE = (
-    "DATA PRIVACY & REDACTION:\n"
-    "All technical indicators in this advisory are REDACTED for safe email transit.\n"
-    "Verified abuse response personnel may request full un-redacted evidence via\n"
-    "secure channels."
-)
-
 
 def defang_url(url: str) -> str:
-    """Defang a URL for safe email transmission (defangs scheme and domain dots).
+    """Defang a URL cleanly for email transit.
 
     Example:
-        https://facebook-login.vercel.app/path -> hXXps://facebook-login[.]vercel[.]app/path
+        https://facebook-login.vercel.app/path -> https://facebook-login[.]vercel[.]app/path
     """
     if not url:
         return ""
-    u = url.replace("https://", "hXXps://").replace("http://", "hXXp://")
+    u = url
     if "://" in u:
         scheme, rest = u.split("://", 1)
         if "/" in rest:
@@ -50,45 +36,49 @@ def defang_url(url: str) -> str:
     return u.replace(".", "[.]")
 
 
+def defang_host(host: str) -> str:
+    """Defang a hostname for display in email subjects/headers (strips scheme and paths)."""
+    if not host:
+        return "target network"
+    h = host
+    for prefix in ("https://", "http://", "hXXps://", "hXXp://"):
+        if h.startswith(prefix):
+            h = h[len(prefix):]
+    if "/" in h:
+        h = h.split("/", 1)[0]
+    return h.replace(".", "[.]")
+
+
 def _footer() -> str:
     return (
-        "\n"
-        "----------------------------------------------------------------------\n"
-        "Outpost Threat Intelligence Center | HeapLeap Cyber Defense\n"
-        f"Official Contact: {settings.takedown_from_email}\n"
-        "Defensive Research & Automated Threat Remediation\n"
-        "----------------------------------------------------------------------\n"
+        "\n\n---\n"
+        "Security Team | Outpost Threat Intelligence\n"
+        f"Contact: {settings.takedown_from_email}\n"
+        "HeapLeap Cyber Defense Operations"
     )
 
 
 def _evidence_block(host_info: dict[str, Any] | None, kit_summary: dict[str, Any] | None) -> str:
-    """Render a structured, monospaced evidence block for enterprise CSIRT reports."""
+    """Render a clean, natural technical evidence block."""
     host_info = host_info or {}
     kit_summary = kit_summary or {}
     lines: list[str] = []
 
     if host_info.get("ip"):
-        lines.append(f"  Target IPv4 Address: {host_info['ip']}")
+        lines.append(f"  • IP Address: {host_info['ip']}")
     if host_info.get("asn"):
         asn_name = host_info.get("asn_name") or ""
-        lines.append(f"  Autonomous System:   AS{host_info['asn']} ({asn_name})".rstrip())
+        lines.append(f"  • Network (ASN): AS{host_info['asn']} {asn_name}".rstrip())
     if host_info.get("country"):
-        lines.append(f"  Hosting Location:    {host_info['country']}")
+        lines.append(f"  • Host Location: {host_info['country']}")
     if host_info.get("registrar"):
-        lines.append(f"  Domain Registrar:    {host_info['registrar']}")
+        lines.append(f"  • Domain Registrar: {host_info['registrar']}")
     if kit_summary.get("brand"):
-        lines.append(f"  Targeted Brand:      {kit_summary['brand']}")
+        lines.append(f"  • Targeted Brand: {kit_summary['brand']}")
     if kit_summary.get("sha256"):
-        lines.append(f"  Kit Signature (SHA): {kit_summary['sha256']}")
-    if kit_summary.get("file_count"):
-        lines.append(f"  Phishing Kit Files:  {kit_summary['file_count']}")
+        lines.append(f"  • Threat Signature: {kit_summary['sha256']}")
 
-    for ind in kit_summary.get("indicators", []) or []:
-        itype = ind.get("type", "indicator")
-        disp = ind.get("redacted_display", "(redacted)")
-        lines.append(f"  Exfiltration Channel [{itype}]: {disp} [REDACTED]")
-
-    return "\n".join(lines) if lines else "  (Standard technical evidence captured)"
+    return "\n".join(lines) if lines else "  • Standard technical evidence captured"
 
 
 def host_abuse_report(
@@ -96,27 +86,29 @@ def host_abuse_report(
     host_info: dict[str, Any] | None,
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
-    """Enterprise report to a hosting provider's abuse desk requesting content removal."""
+    """Clean report to a hosting provider's abuse team."""
     d_url = defang_url(url)
-    subject = f"[ABUSE ADVISORY] Active Phishing Endpoint Incident — {d_url}"
+    host_info = host_info or {}
+    hostname = host_info.get("hostname") or host_info.get("host")
+    if not hostname:
+        clean_u = url.replace("https://", "").replace("http://", "")
+        hostname = clean_u.split("/", 1)[0]
+    d_host = defang_host(hostname)
+
+    subject = f"Security Notice: Phishing activity reported on {d_host}"
     body = (
-        "ATTN: Network Operations & Security Response Team\n\n"
-        "This is an automated threat intelligence advisory regarding a confirmed active "
-        "phishing endpoint detected on infrastructure assigned to your organization.\n\n"
-        "======================================================================\n"
-        "INCIDENT TECHNICAL SUMMARY\n"
-        "======================================================================\n"
-        f"  Flagged Endpoint (Defanged): {d_url}\n"
-        f"{_evidence_block(host_info, kit_summary)}\n"
-        "  Threat Classification:        HIGH — Social Engineering / Credential Theft\n\n"
-        "======================================================================\n"
-        "REMEDIATION ACTION REQUESTED\n"
-        "======================================================================\n"
-        "  1. Suspend or isolate the flagged URL endpoint to prevent victim impact.\n"
-        "  2. Remove any deployed exfiltration scripts or exposed kit archives.\n"
-        "  3. Notify the account holder regarding potential credential/server compromise.\n\n"
-        f"{_REDACTION_NOTE}\n\n"
-        f"{_PASSIVE_NOTE}\n"
+        "Hello Abuse & Security Team,\n\n"
+        "We are writing to notify your team regarding a confirmed phishing page currently "
+        "hosted on your network infrastructure.\n\n"
+        f"Reported Page (Defanged):\n  {d_url}\n\n"
+        "Technical Details:\n"
+        f"{_evidence_block(host_info, kit_summary)}\n\n"
+        "Action Requested:\n"
+        "Could you please review this endpoint and suspend or remove the malicious content "
+        "at your earliest convenience? If the site belongs to a legitimate customer whose server "
+        "was compromised, we recommend notifying the account owner so they can secure it.\n\n"
+        "Note: Technical indicators above are defanged for safe handling. "
+        "Our research is strictly passive and rate-limited.\n"
         f"{_footer()}"
     )
     return subject, body
@@ -127,81 +119,69 @@ def registrar_report(
     host_info: dict[str, Any] | None,
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
-    """Enterprise report to a domain registrar requesting suspension of a malicious domain."""
-    registrar = (host_info or {}).get("registrar") or "Registrar Abuse Desk"
+    """Clean report to a domain registrar."""
+    registrar = (host_info or {}).get("registrar") or "Registrar Team"
     d_url = defang_url(url)
-    subject = f"[REGISTRAR ADVISORY] Malicious Domain Suspension Request — {d_url}"
+    hostname = (host_info or {}).get("hostname") or url
+    d_host = defang_host(hostname)
+
+    subject = f"Domain Security Notice: Phishing activity on {d_host}"
     body = (
-        f"ATTN: {registrar} — Abuse & Compliance Operations\n\n"
-        "This is an automated threat intelligence report concerning a domain registered "
-        "under your organization that is currently engaging in malicious phishing activity.\n\n"
-        "======================================================================\n"
-        "MALICIOUS DOMAIN IDENTIFICATION\n"
-        "======================================================================\n"
-        f"  Flagged Domain / URL (Defanged): {d_url}\n"
-        f"{_evidence_block(host_info, kit_summary)}\n"
-        "  Classification:                   Phishing / Brand Impersonation\n\n"
-        "======================================================================\n"
-        "REQUESTED REGISTRAR ACTION\n"
-        "======================================================================\n"
-        "  Please review the domain registration and take appropriate suspension action "
-        "in compliance with your Acceptable Use Policy and ICANN RAA obligations.\n\n"
-        f"{_REDACTION_NOTE}\n\n"
-        f"{_PASSIVE_NOTE}\n"
+        f"Hello {registrar},\n\n"
+        "We are writing to inform your compliance team about a domain registered under "
+        "your management that is currently serving active phishing content.\n\n"
+        f"Reported URL (Defanged):\n  {d_url}\n\n"
+        "Technical Details:\n"
+        f"{_evidence_block(host_info, kit_summary)}\n\n"
+        "Action Requested:\n"
+        "We kindly request that you review the domain registration and consider taking appropriate "
+        "action according to your acceptable use policy.\n\n"
+        "Note: All URLs and indicators are defanged for safe email transit.\n"
         f"{_footer()}"
     )
     return subject, body
 
 
 def telegram_report(indicator_redacted_display: str, kit_sha: str | None) -> tuple[str, str]:
-    """Report a Telegram bot token used for exfiltration — REPORT ONLY."""
+    """Clean report to Telegram abuse team."""
     kit_ref = kit_sha or "(analyzed threat archive)"
-    subject = "[SECURITY ADVISORY] Malicious Telegram Bot Token — Credential Exfiltration"
+    subject = "Security Notice: Malicious bot token identified in phishing campaign"
     body = (
-        "ATTN: Telegram Trust & Safety / Abuse Team\n\n"
-        "During threat analysis of an active phishing kit, a Telegram bot token was "
-        "identified as an exfiltration endpoint for stolen user credentials.\n\n"
-        "======================================================================\n"
-        "EXFILTRATION BOT DETAILS\n"
-        "======================================================================\n"
-        f"  Bot Token Signature (REDACTED): {indicator_redacted_display}\n"
-        f"  Source Phishing Kit Hash (SHA256): {kit_ref}\n\n"
-        "SPECIAL HANDLING & PROTOCOL NOTICE:\n"
-        "  Outpost threat operations has NOT executed, called, or interacted with "
-        "this bot token in any capacity. This discovery is based solely on static "
-        "code inspection.\n\n"
-        "REQUESTED ACTION:\n"
-        "  Please revoke/terminate the bot associated with this token to neutralize "
-        "the exfiltration pipeline.\n\n"
-        f"{_REDACTION_NOTE}\n\n"
-        f"{_PASSIVE_NOTE}\n"
+        "Hello Telegram Security Team,\n\n"
+        "During static analysis of a phishing kit, we identified a Telegram bot token "
+        "being used as an automated exfiltration channel for stolen credentials.\n\n"
+        "Bot Details:\n"
+        f"  • Token (Redacted): {indicator_redacted_display}\n"
+        f"  • Source Signature: {kit_ref}\n\n"
+        "Action Requested:\n"
+        "Please review and consider disabling this bot token to stop further credential exfiltration.\n\n"
+        "Our research is strictly static and passive. We have not interacted with or executed calls "
+        "to this bot.\n"
         f"{_footer()}"
     )
     return subject, body
 
 
 def gsb_report(url: str) -> tuple[str, str]:
-    """Build a Google Safe Browsing submission record for a malicious URL."""
+    """Google Safe Browsing submission."""
     d_url = defang_url(url)
-    subject = f"[SAFE BROWSING SUBMISSION] Malicious URL — {d_url}"
+    subject = f"Safe Browsing Submission: Phishing URL ({d_url})"
     body = (
-        "Submitting a verified phishing URL to Google Safe Browsing.\n\n"
-        f"Target URL (Defanged): {d_url}\n"
-        "Threat Type:            SOCIAL_ENGINEERING (Phishing)\n\n"
-        f"{_PASSIVE_NOTE}\n"
+        "Submitting a confirmed phishing URL for Google Safe Browsing index.\n\n"
+        f"URL: {d_url}\n"
+        "Classification: Phishing / Social Engineering\n"
         f"{_footer()}"
     )
     return subject, body
 
 
 def apwg_report(url: str) -> tuple[str, str]:
-    """Build an APWG eCrime Exchange submission record for a malicious URL."""
+    """APWG report."""
     d_url = defang_url(url)
-    subject = f"[APWG THREAT FEED] Phishing URL Report — {d_url}"
+    subject = f"APWG Submission: Phishing URL ({d_url})"
     body = (
-        "Submitting a verified phishing URL to the APWG eCrime Exchange.\n\n"
-        f"Target URL (Defanged): {d_url}\n\n"
-        f"{_PASSIVE_NOTE}\n"
+        "Submitting a confirmed phishing URL for APWG blocklist inclusion.\n\n"
+        f"URL: {d_url}\n"
         f"{_footer()}"
     )
     return subject, body

@@ -35,7 +35,7 @@ def main() -> None:
         "registrar": "NameCheap Inc.",
     }
     subject, body = host_abuse_report(
-        "hXXps://facebook-login-page-kappa.vercel.app/login",
+        "https://facebook-login-page-kappa.vercel.app/login",
         mock_host_info,
         {"sha256": None, "count": 0},
     )
