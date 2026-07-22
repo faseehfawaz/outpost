@@ -1,11 +1,12 @@
-"""Pure abuse-report builders — Clean, Natural Security Notification Standard.
+"""Pure abuse-report builders — Crisp Corporate Security Advisory Standard.
 
-Designed to pass email spam filters (no all-caps triggers, no ASCII art lines,
-no URLs in subject lines, and clean human-readable defanging).
+Short, factual, neutral, and structured like advisories from CrowdStrike,
+Netcraft, and Cloudflare. Avoids conversational fluff that triggers spam filters.
 """
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 from pkintel.config import settings
@@ -37,9 +38,9 @@ def defang_url(url: str) -> str:
 
 
 def defang_host(host: str) -> str:
-    """Defang a hostname for display in email subjects/headers (strips scheme and paths)."""
+    """Defang a hostname for display in email subjects/headers."""
     if not host:
-        return "target network"
+        return "network-endpoint"
     h = host
     for prefix in ("https://", "http://", "hXXps://", "hXXp://"):
         if h.startswith(prefix):
@@ -49,36 +50,42 @@ def defang_host(host: str) -> str:
     return h.replace(".", "[.]")
 
 
+def _case_id(url: str) -> str:
+    """Generate a stable case reference string for the report."""
+    h = abs(hash(url)) % 90000 + 10000
+    return f"OP-2026-{h}"
+
+
 def _footer() -> str:
     return (
-        "\n\n---\n"
-        "Security Team | Outpost Threat Intelligence\n"
-        f"Contact: {settings.takedown_from_email}\n"
-        "HeapLeap Cyber Defense Operations"
+        "\n\n"
+        "Outpost Threat Intelligence Operations\n"
+        "HeapLeap Cyber Defense Team\n"
+        f"Contact: {settings.takedown_from_email}"
     )
 
 
-def _evidence_block(host_info: dict[str, Any] | None, kit_summary: dict[str, Any] | None) -> str:
-    """Render a clean, natural technical evidence block."""
+def _evidence_lines(host_info: dict[str, Any] | None, kit_summary: dict[str, Any] | None) -> list[str]:
+    """Render factual technical evidence lines."""
     host_info = host_info or {}
     kit_summary = kit_summary or {}
     lines: list[str] = []
 
     if host_info.get("ip"):
-        lines.append(f"  • IP Address: {host_info['ip']}")
+        lines.append(f"  IP Address:      {host_info['ip']}")
     if host_info.get("asn"):
         asn_name = host_info.get("asn_name") or ""
-        lines.append(f"  • Network (ASN): AS{host_info['asn']} {asn_name}".rstrip())
+        lines.append(f"  Network (ASN):    AS{host_info['asn']} {asn_name}".rstrip())
     if host_info.get("country"):
-        lines.append(f"  • Host Location: {host_info['country']}")
+        lines.append(f"  Host Country:    {host_info['country']}")
     if host_info.get("registrar"):
-        lines.append(f"  • Domain Registrar: {host_info['registrar']}")
+        lines.append(f"  Registrar:       {host_info['registrar']}")
     if kit_summary.get("brand"):
-        lines.append(f"  • Targeted Brand: {kit_summary['brand']}")
+        lines.append(f"  Target Brand:    {kit_summary['brand']}")
     if kit_summary.get("sha256"):
-        lines.append(f"  • Threat Signature: {kit_summary['sha256']}")
+        lines.append(f"  Kit Hash (SHA):  {kit_summary['sha256']}")
 
-    return "\n".join(lines) if lines else "  • Standard technical evidence captured"
+    return lines
 
 
 def host_abuse_report(
@@ -86,7 +93,7 @@ def host_abuse_report(
     host_info: dict[str, Any] | None,
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
-    """Clean report to a hosting provider's abuse team."""
+    """Clean, neutral report to a hosting provider's security desk."""
     d_url = defang_url(url)
     host_info = host_info or {}
     hostname = host_info.get("hostname") or host_info.get("host")
@@ -94,21 +101,27 @@ def host_abuse_report(
         clean_u = url.replace("https://", "").replace("http://", "")
         hostname = clean_u.split("/", 1)[0]
     d_host = defang_host(hostname)
+    cid = _case_id(url)
 
-    subject = f"Security Notice: Phishing activity reported on {d_host}"
+    subject = f"Security Incident Notification [{cid}] - Phishing on {d_host}"
+
+    ev_lines = _evidence_lines(host_info, kit_summary)
+    ev_text = "\n".join(ev_lines) if ev_lines else "  No additional host metadata"
+
     body = (
-        "Hello Abuse & Security Team,\n\n"
-        "We are writing to notify your team regarding a confirmed phishing page currently "
-        "hosted on your network infrastructure.\n\n"
-        f"Reported Page (Defanged):\n  {d_url}\n\n"
+        f"Security Advisory | Reference: {cid}\n"
+        f"Target Host: {d_host}\n\n"
+        "Incident Summary:\n"
+        "An active phishing page targeting user credentials has been identified on your hosting network.\n\n"
         "Technical Details:\n"
-        f"{_evidence_block(host_info, kit_summary)}\n\n"
-        "Action Requested:\n"
-        "Could you please review this endpoint and suspend or remove the malicious content "
-        "at your earliest convenience? If the site belongs to a legitimate customer whose server "
-        "was compromised, we recommend notifying the account owner so they can secure it.\n\n"
-        "Note: Technical indicators above are defanged for safe handling. "
-        "Our research is strictly passive and rate-limited.\n"
+        f"  Case ID:         {cid}\n"
+        f"  Classification:  Phishing / Social Engineering\n"
+        f"  Defanged URL:    {d_url}\n"
+        f"{ev_text}\n\n"
+        "Recommended Action:\n"
+        "Please review the reported URL and suspend the malicious content if verified.\n\n"
+        "Notice: Technical indicators above are defanged for safe handling. "
+        "This report was generated via passive threat monitoring."
         f"{_footer()}"
     )
     return subject, body
@@ -119,24 +132,31 @@ def registrar_report(
     host_info: dict[str, Any] | None,
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
-    """Clean report to a domain registrar."""
-    registrar = (host_info or {}).get("registrar") or "Registrar Team"
+    """Clean, neutral report to a domain registrar."""
+    registrar = (host_info or {}).get("registrar") or "Registrar Security Desk"
     d_url = defang_url(url)
     hostname = (host_info or {}).get("hostname") or url
     d_host = defang_host(hostname)
+    cid = _case_id(url)
 
-    subject = f"Domain Security Notice: Phishing activity on {d_host}"
+    subject = f"Domain Security Notification [{cid}] - {d_host}"
+
+    ev_lines = _evidence_lines(host_info, kit_summary)
+    ev_text = "\n".join(ev_lines) if ev_lines else "  No additional registrar metadata"
+
     body = (
-        f"Hello {registrar},\n\n"
-        "We are writing to inform your compliance team about a domain registered under "
-        "your management that is currently serving active phishing content.\n\n"
-        f"Reported URL (Defanged):\n  {d_url}\n\n"
+        f"Security Advisory | Reference: {cid}\n"
+        f"Recipient: {registrar}\n\n"
+        "Incident Summary:\n"
+        "A domain registered under your organization is currently serving active phishing content.\n\n"
         "Technical Details:\n"
-        f"{_evidence_block(host_info, kit_summary)}\n\n"
-        "Action Requested:\n"
-        "We kindly request that you review the domain registration and consider taking appropriate "
-        "action according to your acceptable use policy.\n\n"
-        "Note: All URLs and indicators are defanged for safe email transit.\n"
+        f"  Case ID:         {cid}\n"
+        f"  Classification:  Phishing / Domain Misuse\n"
+        f"  Defanged URL:    {d_url}\n"
+        f"{ev_text}\n\n"
+        "Recommended Action:\n"
+        "Please review the domain registration and consider taking appropriate action per your AUP.\n\n"
+        "Notice: All URLs are defanged for safe transit."
         f"{_footer()}"
     )
     return subject, body
@@ -145,18 +165,20 @@ def registrar_report(
 def telegram_report(indicator_redacted_display: str, kit_sha: str | None) -> tuple[str, str]:
     """Clean report to Telegram abuse team."""
     kit_ref = kit_sha or "(analyzed threat archive)"
-    subject = "Security Notice: Malicious bot token identified in phishing campaign"
+    cid = f"OP-TG-{abs(hash(indicator_redacted_display)) % 90000 + 10000}"
+    subject = f"Threat Notification [{cid}] - Telegram Bot Token Misuse"
     body = (
-        "Hello Telegram Security Team,\n\n"
-        "During static analysis of a phishing kit, we identified a Telegram bot token "
-        "being used as an automated exfiltration channel for stolen credentials.\n\n"
-        "Bot Details:\n"
-        f"  • Token (Redacted): {indicator_redacted_display}\n"
-        f"  • Source Signature: {kit_ref}\n\n"
-        "Action Requested:\n"
-        "Please review and consider disabling this bot token to stop further credential exfiltration.\n\n"
-        "Our research is strictly static and passive. We have not interacted with or executed calls "
-        "to this bot.\n"
+        f"Security Advisory | Reference: {cid}\n"
+        "Recipient: Telegram Trust & Safety\n\n"
+        "Incident Summary:\n"
+        "Static code analysis of a phishing kit identified a Telegram bot token used as an exfiltration endpoint.\n\n"
+        "Technical Details:\n"
+        f"  Case ID:         {cid}\n"
+        f"  Bot Token:       {indicator_redacted_display} (Redacted)\n"
+        f"  Kit Hash (SHA):  {kit_ref}\n\n"
+        "Recommended Action:\n"
+        "Please review and consider disabling the associated bot token.\n\n"
+        "Notice: This finding is based solely on static code analysis. No API calls were made to Telegram."
         f"{_footer()}"
     )
     return subject, body
@@ -165,11 +187,12 @@ def telegram_report(indicator_redacted_display: str, kit_sha: str | None) -> tup
 def gsb_report(url: str) -> tuple[str, str]:
     """Google Safe Browsing submission."""
     d_url = defang_url(url)
-    subject = f"Safe Browsing Submission: Phishing URL ({d_url})"
+    cid = _case_id(url)
+    subject = f"Safe Browsing Submission [{cid}] - Phishing URL"
     body = (
-        "Submitting a confirmed phishing URL for Google Safe Browsing index.\n\n"
+        f"Submission Ref: {cid}\n"
         f"URL: {d_url}\n"
-        "Classification: Phishing / Social Engineering\n"
+        "Type: SOCIAL_ENGINEERING\n"
         f"{_footer()}"
     )
     return subject, body
@@ -178,9 +201,10 @@ def gsb_report(url: str) -> tuple[str, str]:
 def apwg_report(url: str) -> tuple[str, str]:
     """APWG report."""
     d_url = defang_url(url)
-    subject = f"APWG Submission: Phishing URL ({d_url})"
+    cid = _case_id(url)
+    subject = f"APWG Submission [{cid}] - Phishing URL"
     body = (
-        "Submitting a confirmed phishing URL for APWG blocklist inclusion.\n\n"
+        f"Submission Ref: {cid}\n"
         f"URL: {d_url}\n"
         f"{_footer()}"
     )
