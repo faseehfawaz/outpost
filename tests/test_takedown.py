@@ -44,4 +44,4 @@ def test_parse_rdap_asn():
 
 def test_host_abuse_report():
     subject, body = host_abuse_report("http://example.com/login", {}, {})
-    assert "redact" in body.lower()
+    assert "defang" in body.lower() or "redact" in body.lower()

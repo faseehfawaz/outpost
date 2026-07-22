@@ -272,7 +272,16 @@ def _fake_settings(**overrides):
 @pytest.mark.skipif(not _RUNNER_OK, reason="runner import stack unavailable")
 def test_build_adapters_respects_flags():
     all_on = {a.name for a in build_adapters(_fake_settings(urlscan_api_key="k"))}
-    assert all_on == {"urlhaus", "openphish", "urlscan", "crtsh", "github"}
+    assert all_on == {
+        "urlhaus",
+        "openphish",
+        "urlscan",
+        "crtsh",
+        "github",
+        "phishstats",
+        "phishing_database",
+        "threatfox",
+    }
 
     minimal = {
         a.name
@@ -284,7 +293,12 @@ def test_build_adapters_respects_flags():
             )
         )
     }
-    assert minimal == {"github"}  # github needs no key/flag
+    assert minimal == {
+        "github",
+        "phishstats",
+        "phishing_database",
+        "threatfox",
+    }
 
 
 @pytest.mark.skipif(not _RUNNER_OK, reason="runner import stack unavailable")

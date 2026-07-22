@@ -6,7 +6,6 @@ Netcraft, and Cloudflare. Avoids conversational fluff that triggers spam filters
 
 from __future__ import annotations
 
-import random
 from typing import Any
 
 from pkintel.config import settings
