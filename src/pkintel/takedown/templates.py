@@ -109,6 +109,7 @@ def host_abuse_report(
     ev_text = "\n".join(ev_lines) if ev_lines else "  No additional host metadata"
 
     body = (
+        "To: Network Security & Abuse Operations Team\n\n"
         f"Security Advisory | Reference: {cid}\n"
         f"Target Host: {d_host}\n\n"
         "Incident Summary:\n"
@@ -133,7 +134,7 @@ def registrar_report(
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
     """Clean, neutral report to a domain registrar."""
-    registrar = (host_info or {}).get("registrar") or "Registrar Security Desk"
+    registrar = (host_info or {}).get("registrar") or "Registrar Operations"
     d_url = defang_url(url)
     hostname = (host_info or {}).get("hostname") or url
     d_host = defang_host(hostname)
@@ -145,10 +146,11 @@ def registrar_report(
     ev_text = "\n".join(ev_lines) if ev_lines else "  No additional registrar metadata"
 
     body = (
+        f"To: {registrar} — Abuse & Compliance Desk\n\n"
         f"Security Advisory | Reference: {cid}\n"
-        f"Recipient: {registrar}\n\n"
+        f"Target Domain: {d_host}\n\n"
         "Incident Summary:\n"
-        "A domain registered under your organization is currently serving active phishing content.\n\n"
+        "A domain registered under your management is currently serving active phishing content.\n\n"
         "Technical Details:\n"
         f"  Case ID:         {cid}\n"
         f"  Classification:  Phishing / Domain Misuse\n"
