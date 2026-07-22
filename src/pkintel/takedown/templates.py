@@ -40,6 +40,25 @@ _REDACTION_NOTE = (
 )
 
 
+def defang_url(url: str) -> str:
+    """Defang a URL for safe email transmission (defangs scheme and domain dots).
+
+    Example:
+        https://facebook-login.vercel.app/path -> hXXps://facebook-login[.]vercel[.]app/path
+    """
+    if not url:
+        return ""
+    u = url.replace("https://", "hXXps://").replace("http://", "hXXp://")
+    if "://" in u:
+        scheme, rest = u.split("://", 1)
+        if "/" in rest:
+            host, path = rest.split("/", 1)
+            defanged_host = host.replace(".", "[.]")
+            return f"{scheme}://{defanged_host}/{path}"
+        return f"{scheme}://{rest.replace('.', '[.]')}"
+    return u.replace(".", "[.]")
+
+
 def _footer() -> str:
     return (
         "\n-- \n"
@@ -81,16 +100,15 @@ def host_abuse_report(
     kit_summary: dict[str, Any] | None,
 ) -> tuple[str, str]:
     """Report to a hosting provider's abuse desk requesting content removal."""
-    host = host_info.get("hostname") if host_info else None
-    host = host or url
-    subject = f"[pkintel] Phishing content hosted on your network — takedown request ({url})"
+    d_url = defang_url(url)
+    subject = f"[pkintel] Phishing content hosted on your network — takedown request ({d_url})"
     body = (
         "Hello,\n\n"
         "We are a defensive security research project and are reporting a "
         "confirmed phishing page hosted on infrastructure you appear to be "
         "responsible for. The site is very likely a compromised legitimate "
         "server; the owner is a victim too, and we ask you to treat it as such.\n\n"
-        f"Phishing URL:\n  {url}\n\n"
+        f"Phishing URL (Defanged):\n  {d_url}\n\n"
         "Evidence:\n"
         f"{_evidence_block(host_info, kit_summary)}\n\n"
         "Request:\n"
@@ -112,12 +130,13 @@ def registrar_report(
 ) -> tuple[str, str]:
     """Report to a domain registrar requesting suspension of a malicious domain."""
     registrar = (host_info or {}).get("registrar") or "the registrar"
-    subject = f"[pkintel] Malicious domain used for phishing — suspension request ({url})"
+    d_url = defang_url(url)
+    subject = f"[pkintel] Malicious domain used for phishing — suspension request ({d_url})"
     body = (
         f"Hello {registrar},\n\n"
         "We are a defensive security research project reporting a domain under "
         "your management that is being used to serve a confirmed phishing page.\n\n"
-        f"Phishing URL:\n  {url}\n\n"
+        f"Phishing URL (Defanged):\n  {d_url}\n\n"
         "Evidence:\n"
         f"{_evidence_block(host_info, kit_summary)}\n\n"
         "Request:\n"
