@@ -1,0 +1,20 @@
+[Unit]
+Description=Outpost Phishing Intelligence FastAPI Server
+Documentation=https://github.com/faseehfawaz/outpost
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=outpost
+Group=outpost
+WorkingDirectory=/opt/heapleap
+EnvironmentFile=/opt/heapleap/.env
+ExecStart=/opt/heapleap/venv/bin/uvicorn pkintel.api.app:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

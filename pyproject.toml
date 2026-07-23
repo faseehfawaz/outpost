@@ -27,6 +27,7 @@ dependencies = [
     "python-whois>=0.9",
     "boto3>=1.34",
     "prometheus-client>=0.20",
+    "sentry-sdk[fastapi]>=2.5",
 ]
 
 [project.optional-dependencies]

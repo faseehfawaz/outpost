@@ -1,0 +1,21 @@
+[Unit]
+Description=Outpost Phishing Intelligence Pipeline Worker Daemon
+Documentation=https://github.com/faseehfawaz/outpost
+After=network.target postgresql.service docker.service
+Wants=postgresql.service docker.service
+
+[Service]
+Type=simple
+User=outpost
+Group=outpost
+WorkingDirectory=/opt/heapleap
+EnvironmentFile=/opt/heapleap/.env
+ExecStart=/opt/heapleap/venv/bin/pkintel run all --loop --interval 30
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -9,19 +9,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
 from pkintel.api.routes import actors, feeds, ioc
+from pkintel.config import settings
 from pkintel.logging import get_logger
 
 log = get_logger(__name__)
 
 
+def _init_sentry():
+    """Initialize Sentry if DSN is configured."""
+    if not settings.sentry_dsn:
+        return
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        traces_sample_rate=settings.sentry_traces_sample_rate,
+        environment=settings.dd_env,
+        release="outpost@0.1.0",
+        send_default_pii=False,
+    )
+    log.info("sentry_initialized", env=settings.dd_env)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events for FastAPI."""
+    _init_sentry()
     log.info("Starting up pkintel API")
-    # Insert database pool init logic here if required
     yield
     log.info("Shutting down pkintel API")
-    # Insert database pool teardown logic here if required
 
 
 app = FastAPI(title="pkintel - Phishing-Kit Intelligence API", lifespan=lifespan)

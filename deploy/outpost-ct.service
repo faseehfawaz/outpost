@@ -1,0 +1,20 @@
+[Unit]
+Description=Outpost Certificate Transparency (CT) Stream Listener Daemon
+Documentation=https://github.com/faseehfawaz/outpost
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=outpost
+Group=outpost
+WorkingDirectory=/opt/heapleap
+EnvironmentFile=/opt/heapleap/.env
+ExecStart=/opt/heapleap/venv/bin/pkintel run ingest --loop --interval 15
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     log_json: bool = Field(default=False, description="emit JSON logs (prod)")
 
+    # ---- observability (Sentry + Datadog) ----------------------------------
+    sentry_dsn: str = Field(default="", description="Sentry DSN for error tracking")
+    sentry_traces_sample_rate: float = Field(default=0.3)
+    dd_service: str = Field(default="outpost", description="Datadog service name")
+    dd_env: str = Field(default="dev", description="Datadog environment tag")
+
     # ---- database ---------------------------------------------------------
     db_url: PostgresDsn = Field(
         default="postgresql://pkintel:pkintel@localhost:5432/pkintel",
