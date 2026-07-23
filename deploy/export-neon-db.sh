@@ -35,11 +35,15 @@ echo "==========================================================================
 log_info "1/3 Resolving database connection string (PKINTEL_DB_URL)..."
 
 if [ -z "${PKINTEL_DB_URL:-}" ]; then
-  ENV_FILE="${PROJECT_ROOT}/.env"
-  if [ -f "$ENV_FILE" ]; then
-    log_info "Loading PKINTEL_DB_URL from $ENV_FILE..."
-    # Extract PKINTEL_DB_URL ignoring comments and whitespace
-    PKINTEL_DB_URL=$(grep -E '^PKINTEL_DB_URL=' "$ENV_FILE" | cut -d '=' -f 2- | tr -d '"' | tr -d "'" || true)
+  if [ -n "${1:-}" ]; then
+    PKINTEL_DB_URL="$1"
+    log_info "Using database URL passed as argument."
+  else
+    ENV_FILE="${PROJECT_ROOT}/.env"
+    if [ -f "$ENV_FILE" ]; then
+      log_info "Loading PKINTEL_DB_URL from $ENV_FILE..."
+      PKINTEL_DB_URL=$(grep -E '^PKINTEL_DB_URL=' "$ENV_FILE" | cut -d '=' -f 2- | tr -d '"' | tr -d "'" || true)
+    fi
   fi
 fi
 
