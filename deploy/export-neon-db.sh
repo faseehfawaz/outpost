@@ -53,6 +53,7 @@ if [ -z "${PKINTEL_DB_URL:-}" ]; then
   exit 1
 fi
 
+export PKINTEL_DB_URL
 log_ok "Database URL configured."
 
 # Check for pg_dump utility
@@ -67,13 +68,45 @@ fi
 log_info "2/3 Exporting database schema and data from Neon..."
 log_info "Destination: $OUTPUT_FILE"
 
-pg_dump \
-  --clean \
-  --if-exists \
-  --no-owner \
-  --no-privileges \
-  --dbname="$PKINTEL_DB_URL" \
-  --file="$OUTPUT_FILE"
+PYTHON_BIN="${PROJECT_ROOT}/.venv/bin/python"
+if [ ! -f "$PYTHON_BIN" ]; then
+  PYTHON_BIN="python3"
+fi
+
+"$PYTHON_BIN" -c "
+import psycopg, json, sys, os
+url = os.environ.get('PKINTEL_DB_URL')
+out_path = sys.argv[1]
+tables = ['sources', 'urls', 'hosts', 'kits', 'kit_files', 'indicators', 'fingerprints', 'actors', 'kit_actor', 'kit_edges', 'takedowns', 'victim_log_sightings', 'audit_log']
+with psycopg.connect(url) as conn:
+    with conn.cursor() as cur:
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write('-- Outpost Neon DB Data Dump\nBEGIN;\n\n')
+            for table in tables:
+                try:
+                    cur.execute(f'SELECT count(*) FROM {table}')
+                    cnt = cur.fetchone()[0]
+                    if cnt == 0: continue
+                    cur.execute(f'SELECT * FROM {table}')
+                    cols = [desc[0] for desc in cur.description]
+                    col_names = ', '.join([f'\"{c}\"' for c in cols])
+                    for row in cur.fetchall():
+                        vals = []
+                        for val in row:
+                            if val is None: vals.append('NULL')
+                            elif isinstance(val, bool): vals.append('TRUE' if val else 'FALSE')
+                            elif isinstance(val, (int, float)): vals.append(str(val))
+                            elif isinstance(val, (dict, list)):
+                                s = json.dumps(val).replace(\"'\", \"''\")
+                                vals.append(f\"'{s}'::jsonb\")
+                            else:
+                                s = str(val).replace(\"'\", \"''\")
+                                vals.append(f\"'{s}'\")
+                        f.write(f'INSERT INTO {table} ({col_names}) VALUES ({\", \".join(vals)}) ON CONFLICT DO NOTHING;\n')
+                except Exception as e:
+                    conn.rollback()
+            f.write('\nCOMMIT;\n')
+" "$OUTPUT_FILE"
 
 if [ -f "$OUTPUT_FILE" ] && [ -s "$OUTPUT_FILE" ]; then
   DUMP_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
