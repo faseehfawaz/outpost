@@ -27,7 +27,7 @@ def extract_indicators(text: str, file_path: str) -> list[Indicator]:
                 Indicator(
                     type=ind_type,
                     value_hash=val_hash,
-                    redacted_display=redact(value),
+                    redacted_display=redact(ind_type.value, value),
                     full_value_encrypted=b"",  # Set by DB layer if needed
                     confidence=conf,
                     found_in_path=file_path,
