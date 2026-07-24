@@ -22,13 +22,15 @@ async def get_ioc_feed(
     # Note: Value redaction should be applied before returning.
     # We join kits, urls, and actors to fulfill the IOCEntry fields.
     query = """
-        SELECT i.type, i.value AS value_redacted, 
+        SELECT i.type AS kind, 
+               i.redacted_display AS value, 
                k.sha256 AS kit_sha256, 
                a.label AS actor_label, 
-               u.brand
+               u.brand,
+               i.created_at AS first_seen
         FROM indicators i
         JOIN kits k ON i.kit_id = k.id
-        LEFT JOIN urls u ON k.id = u.kit_id
+        LEFT JOIN urls u ON k.url_id = u.id
         LEFT JOIN kit_actor ka ON k.id = ka.kit_id
         LEFT JOIN actors a ON ka.actor_id = a.id
         WHERE 1=1
@@ -39,7 +41,6 @@ async def get_ioc_feed(
         query += " AND i.type = %s"
         params.append(type)
     if since:
-        # Assuming indicators table has a created_at column
         query += " AND i.created_at >= %s"
         params.append(since)
 
