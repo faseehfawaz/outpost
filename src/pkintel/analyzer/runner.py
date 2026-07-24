@@ -109,7 +109,7 @@ def run_once(worker_id: str = "analyze-1", limit: int = 5) -> int:
                             ind.type.value,
                             ind.value_hash,
                             ind.redacted_display,
-                            ind.full_value_encrypted,
+                            (ind.full_value.encode("utf-8") if ind.full_value else b""),
                             ind.confidence,
                             ind.found_in_path,
                             "{}",
