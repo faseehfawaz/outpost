@@ -27,7 +27,7 @@ async def get_ioc_feed(
                k.sha256 AS kit_sha256, 
                a.label AS actor_label, 
                u.brand,
-               i.created_at AS first_seen
+               i.found_at AS first_seen
         FROM indicators i
         JOIN kits k ON i.kit_id = k.id
         LEFT JOIN urls u ON k.url_id = u.id
@@ -41,7 +41,7 @@ async def get_ioc_feed(
         query += " AND i.type = %s"
         params.append(type)
     if since:
-        query += " AND i.created_at >= %s"
+        query += " AND i.found_at >= %s"
         params.append(since)
 
     query += " ORDER BY i.id DESC LIMIT %s"
