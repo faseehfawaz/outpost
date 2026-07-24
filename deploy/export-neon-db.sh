@@ -77,17 +77,19 @@ fi
 import psycopg, json, sys, os
 url = os.environ.get('PKINTEL_DB_URL')
 out_path = sys.argv[1]
-tables = ['sources', 'urls', 'hosts', 'kits', 'kit_files', 'indicators', 'fingerprints', 'actors', 'kit_actor', 'kit_edges', 'takedowns', 'victim_log_sightings', 'audit_log']
+
 with psycopg.connect(url) as conn:
     with conn.cursor() as cur:
+        cur.execute(\"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'\")
+        tables = [row[0] for row in cur.fetchall() if row[0] != 'schema_migrations']
         with open(out_path, 'w', encoding='utf-8') as f:
             f.write('-- Outpost Neon DB Data Dump\nBEGIN;\n\n')
             for table in tables:
                 try:
-                    cur.execute(f'SELECT count(*) FROM {table}')
+                    cur.execute(f'SELECT count(*) FROM \"{table}\"')
                     cnt = cur.fetchone()[0]
                     if cnt == 0: continue
-                    cur.execute(f'SELECT * FROM {table}')
+                    cur.execute(f'SELECT * FROM \"{table}\"')
                     cols = [desc[0] for desc in cur.description]
                     col_names = ', '.join([f'\"{c}\"' for c in cols])
                     for row in cur.fetchall():
@@ -102,9 +104,9 @@ with psycopg.connect(url) as conn:
                             else:
                                 s = str(val).replace(\"'\", \"''\")
                                 vals.append(f\"'{s}'\")
-                        f.write(f'INSERT INTO {table} ({col_names}) VALUES ({\", \".join(vals)}) ON CONFLICT DO NOTHING;\n')
+                        f.write(f'INSERT INTO \"{table}\" ({col_names}) VALUES ({\", \".join(vals)}) ON CONFLICT DO NOTHING;\n')
                 except Exception as e:
-                    conn.rollback()
+                    print(f'Warning exporting {table}: {e}')
             f.write('\nCOMMIT;\n')
 " "$OUTPUT_FILE"
 
