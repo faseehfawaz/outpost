@@ -36,18 +36,18 @@ def extract_indicators(text: str, file_path: str) -> list[Indicator]:
             )
 
     for match in TELEGRAM_BOT_TOKEN_RE.finditer(text):
-        _add_indicator(IndicatorType.TELEGRAM_BOT, match.group(1), 1.0)
+        _add_indicator(IndicatorType.telegram_token, match.group(1), 1.0)
 
     for match in TELEGRAM_CHAT_ID_RE.finditer(text):
-        _add_indicator(IndicatorType.TELEGRAM_CHAT, match.group(1), 0.9)
+        _add_indicator(IndicatorType.telegram_chat, match.group(1), 0.9)
 
     for match in DISCORD_WEBHOOK_RE.finditer(text):
-        _add_indicator(IndicatorType.DISCORD_WEBHOOK, match.group(1), 1.0)
+        _add_indicator(IndicatorType.discord_webhook, match.group(1), 1.0)
 
     # Only consider emails in specific contexts to reduce noise
     if "mail(" in text or "$to" in text.lower():
         for match in EMAIL_RE.finditer(text):
-            _add_indicator(IndicatorType.EMAIL, match.group(1), 0.8)
+            _add_indicator(IndicatorType.email, match.group(1), 0.8)
 
     # URLs often found in exfil functions
     if any(func in text for func in ["file_get_contents", "curl_setopt", "fopen"]):
@@ -55,6 +55,6 @@ def extract_indicators(text: str, file_path: str) -> list[Indicator]:
             url = match.group(1)
             # Skip localhost or common internal/benign looking urls
             if "localhost" not in url and "127.0.0.1" not in url:
-                _add_indicator(IndicatorType.URL, url, 0.7)
+                _add_indicator(IndicatorType.url, url, 0.7)
 
     return indicators
