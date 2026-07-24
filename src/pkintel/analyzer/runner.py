@@ -11,7 +11,7 @@ from pkintel.analyzer.indicators import extract_indicators
 from pkintel.analyzer.inventory import process_inventory
 from pkintel.analyzer.safe_extract import extract_archive
 from pkintel.config import settings
-from pkintel.db import claim_rows, connection, execute
+from pkintel.db import claim_rows, execute
 from pkintel.logging import get_logger
 from pkintel.storage import get_storage
 
@@ -78,73 +78,65 @@ def run_once(worker_id: str = "analyze-1", limit: int = 5) -> int:
                         all_indicators.extend(file_inds)
 
                 # Update DB
-                with connection() as conn:
-                    with conn.transaction():
-                        # Update kit
-                        execute(
-                            conn,
-                            "UPDATE kits SET analysis_state = 'analyzed', analyzed_at = now() WHERE id = %s",
-                            (kit_id,),
-                        )
+                # Update kit
+                execute(
+                    "UPDATE kits SET analysis_state = 'analyzed', analyzed_at = now() WHERE id = %s",
+                    (kit_id,),
+                )
 
-                        # Insert files
-                        for inv_file in inventory:
-                            execute(
-                                conn,
-                                "INSERT INTO kit_files (kit_id, path, sha256, tlsh, normalized_token_hash, size, mime, is_obfuscated) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
-                                (
-                                    kit_id,
-                                    inv_file.path,
-                                    inv_file.sha256,
-                                    inv_file.tlsh,
-                                    inv_file.normalized_token_hash,
-                                    inv_file.size,
-                                    inv_file.mime,
-                                    inv_file.is_obfuscated,
-                                ),
-                            )
+                # Insert files
+                for inv_file in inventory:
+                    execute(
+                        "INSERT INTO kit_files (kit_id, path, sha256, tlsh, normalized_token_hash, size, mime, is_obfuscated) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                        (
+                            kit_id,
+                            inv_file.path,
+                            inv_file.sha256,
+                            inv_file.tlsh,
+                            inv_file.normalized_token_hash,
+                            inv_file.size,
+                            inv_file.mime,
+                            inv_file.is_obfuscated,
+                        ),
+                    )
 
-                        # Insert indicators
-                        for ind in all_indicators:
-                            execute(
-                                conn,
-                                "INSERT INTO indicators (kit_id, type, value_hash, redacted_display, full_value_encrypted, confidence, found_in_path, meta) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
-                                (
-                                    kit_id,
-                                    ind.type.value,
-                                    ind.value_hash,
-                                    ind.redacted_display,
-                                    ind.full_value_encrypted,
-                                    ind.confidence,
-                                    ind.found_in_path,
-                                    "{}",
-                                ),  # Serialize meta properly in real app
-                            )
+                # Insert indicators
+                for ind in all_indicators:
+                    execute(
+                        "INSERT INTO indicators (kit_id, type, value_hash, redacted_display, full_value_encrypted, confidence, found_in_path, meta) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                        (
+                            kit_id,
+                            ind.type.value,
+                            ind.value_hash,
+                            ind.redacted_display,
+                            ind.full_value_encrypted,
+                            ind.confidence,
+                            ind.found_in_path,
+                            "{}",
+                        ),
+                    )
 
-                        # Insert fingerprint
-                        execute(
-                            conn,
-                            "INSERT INTO fingerprints (kit_id, fileset_hash, antibot_hash, token_hash, author_strings, file_sha_set) VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
-                            (
-                                kit_id,
-                                fingerprint.fileset_hash,
-                                fingerprint.antibot_hash,
-                                fingerprint.token_hash,
-                                fingerprint.author_strings,
-                                fingerprint.file_sha_set,
-                            ),
-                        )
+                # Insert fingerprint
+                execute(
+                    "INSERT INTO fingerprints (kit_id, fileset_hash, antibot_hash, token_hash, author_strings, file_sha_set) VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                    (
+                        kit_id,
+                        fingerprint.fileset_hash,
+                        fingerprint.antibot_hash,
+                        fingerprint.token_hash,
+                        fingerprint.author_strings,
+                        fingerprint.file_sha_set,
+                    ),
+                )
 
             processed += 1
 
         except Exception as e:
             log.error(f"Error analyzing kit {kit_id}: {e}")
             error_msg = traceback.format_exc()
-            with connection() as conn:
-                execute(
-                    conn,
-                    "UPDATE kits SET analysis_state = 'error', analysis_error = %s WHERE id = %s",
-                    (error_msg, kit_id),
-                )
+            execute(
+                "UPDATE kits SET analysis_state = 'error', analysis_error = %s WHERE id = %s",
+                (error_msg, kit_id),
+            )
 
     return processed
