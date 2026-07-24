@@ -68,11 +68,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('modal-brands').innerHTML =
             (actor.brands || []).map(b => `<span class="tag">${b}</span>`).join(' ');
 
-        // Try to fetch detailed info
+        // Fetch detailed info (kits, hashes, exfil indicators)
         const detail = await API.get(`/actors/${actor.id}`);
         const kitsList = document.getElementById('modal-kits-list');
         if (detail && detail.kits && detail.kits.length > 0) {
-            kitsList.innerHTML = detail.kits.map(k => `<li>${k.sha256 || k}</li>`).join('');
+            let html = detail.kits.map(k => `
+                <li style="margin-bottom: 8px; font-family: monospace;">
+                    <span style="color: #22c55e;">${k.sha256}</span>
+                    ${k.brand ? `<span class="tag" style="margin-left: 8px;">${k.brand}</span>` : ''}
+                </li>
+            `).join('');
+
+            if (detail.indicators && detail.indicators.length > 0) {
+                html += `
+                    <li style="margin-top: 14px; margin-bottom: 6px; font-size: 11px; letter-spacing: 0.05em; color: var(--text-dim); text-transform: uppercase;">Extracted Exfil Indicators:</li>
+                    ${detail.indicators.map(ind => `
+                        <li style="margin-bottom: 4px; font-family: monospace; color: #38bdf8;">
+                            • ${ind}
+                        </li>
+                    `).join('')}
+                `;
+            }
+            kitsList.innerHTML = html;
         } else {
             kitsList.innerHTML = '<li style="color: var(--text-dim)">no kit details available</li>';
         }

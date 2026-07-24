@@ -93,6 +93,17 @@ class ActorCard(BaseModel):
     notes: str | None = None
 
 
+class ActorKitItem(BaseModel):
+    sha256: str
+    collected_at: datetime | None = None
+    brand: str | None = None
+
+
+class ActorDetail(ActorCard):
+    kits: list[ActorKitItem] = Field(default_factory=list)
+    indicators: list[str] = Field(default_factory=list)
+
+
 class IOCEntry(BaseModel):
     kind: str
     value: str  # redacted public value or hash
