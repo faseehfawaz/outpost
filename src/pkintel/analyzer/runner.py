@@ -11,7 +11,8 @@ from pkintel.analyzer.indicators import extract_indicators
 from pkintel.analyzer.inventory import process_inventory
 from pkintel.analyzer.safe_extract import extract_archive
 from pkintel.config import settings
-from pkintel.db import claim_rows, execute
+from pkintel.crypto import encrypt_indicator
+from pkintel.db import claim_rows, execute, execute_many
 from pkintel.logging import get_logger
 from pkintel.storage import get_storage
 
@@ -27,6 +28,7 @@ def run_once(worker_id: str = "analyze-1", limit: int = 5) -> int:
         busy_value="analyzing",
         worker_id=worker_id,
         limit=limit,
+        order_by="id",
     )
 
     if not kits:
@@ -100,21 +102,33 @@ def run_once(worker_id: str = "analyze-1", limit: int = 5) -> int:
                         ),
                     )
 
-                # Insert indicators
-                for ind in all_indicators:
-                    execute(
-                        "INSERT INTO indicators (kit_id, type, value_hash, redacted_display, full_value_encrypted, confidence, found_in_path, meta) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                # Insert indicators.
+                #
+                # full_value_encrypted was previously written as
+                #   ind.full_value.encode("utf-8") if ind.full_value else b""
+                # which was PLAINTEXT in a column named _encrypted — and in
+                # practice always b"", because indicators.py passed a field name
+                # that does not exist on the model so full_value was never set.
+                # Now: real authenticated encryption (Fernet), fail-closed if no
+                # key is configured. See pkintel.crypto.
+                execute_many(
+                    "INSERT INTO indicators (kit_id, type, value_hash, redacted_display, "
+                    "full_value_encrypted, confidence, found_in_path, meta) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                    [
                         (
                             kit_id,
                             ind.type.value,
                             ind.value_hash,
                             ind.redacted_display,
-                            (ind.full_value.encode("utf-8") if ind.full_value else b""),
+                            encrypt_indicator(ind.full_value),
                             ind.confidence,
                             ind.found_in_path,
                             "{}",
-                        ),
-                    )
+                        )
+                        for ind in all_indicators
+                    ],
+                )
 
                 # Insert fingerprint
                 execute(

@@ -8,6 +8,7 @@ Phase 2: Sends draft takedowns (respecting dry-run settings).
 """
 
 from pkintel.config import settings
+from pkintel.crypto import decrypt_indicator
 from pkintel.db import claim_rows, execute, fetch_all, record_audit
 from pkintel.logging import get_logger
 from pkintel.takedown.mailer import send_takedown_email
@@ -73,6 +74,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
                 """
                 INSERT INTO takedowns (url_id, kit_id, target_type, contact, subject, body, status)
                 VALUES (%s, %s, 'host', %s, %s, %s, 'draft')
+                ON CONFLICT DO NOTHING
                 """,
                 (url_id, kit_id, h_contact, h_sub, h_body),
             )
@@ -84,16 +86,35 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
                 """
                 INSERT INTO takedowns (url_id, kit_id, target_type, contact, subject, body, status)
                 VALUES (%s, %s, 'registrar', %s, %s, %s, 'draft')
+                ON CONFLICT DO NOTHING
                 """,
                 (url_id, kit_id, r_contact, r_sub, r_body),
             )
 
             # 3. Telegram Report (only if kit has Telegram indicators)
+            #
+            # This query was broken in two independent ways and had therefore
+            # NEVER produced a single Telegram takedown:
+            #   * `SELECT value` — the indicators table has no `value` column.
+            #     It has value_hash / redacted_display / full_value_encrypted.
+            #   * `type = 'telegram'` — IndicatorType has no such member. The
+            #     real values are 'telegram_token' and 'telegram_chat'.
+            # We report the decrypted token to Telegram's abuse desk (that is
+            # the whole point of retaining it) and fall back to the redacted
+            # display if no encryption key is configured.
             if kit_id:
-                ind_query = "SELECT value FROM indicators WHERE kit_id = %s AND type = 'telegram'"
+                ind_query = """
+                    SELECT redacted_display, full_value_encrypted
+                    FROM indicators
+                    WHERE kit_id = %s AND type IN ('telegram_token', 'telegram_chat')
+                """
                 telegram_inds = fetch_all(ind_query, (kit_id,))
                 for ind in telegram_inds:
-                    t_sub, t_body = telegram_report(ind["value"], kit_sha)
+                    token = (
+                        decrypt_indicator(ind.get("full_value_encrypted"))
+                        or ind["redacted_display"]
+                    )
+                    t_sub, t_body = telegram_report(token, kit_sha)
                     execute(
                         """
                         INSERT INTO takedowns (url_id, kit_id, target_type, contact, subject, body, status)
@@ -123,6 +144,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
         busy_value="sending",
         worker_id=worker_id,
         limit=limit,
+        order_by="id",
     )
     for draft in drafts:
         draft_id = draft["id"]

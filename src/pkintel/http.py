@@ -45,6 +45,19 @@ class _HostThrottle:
 _throttle = _HostThrottle(settings.per_host_min_interval_s)
 
 
+def throttle_host(host: str) -> None:
+    """Wait out the per-host rate limit for ``host`` without issuing a request.
+
+    Exists so non-httpx fetchers obey the same politeness contract as
+    :func:`polite_get`. The headless browser (:mod:`pkintel.triage.render`)
+    navigates through Chromium's own network stack, which never passes through
+    this module — without this call a rendered fetch would silently bypass the
+    rate limit that every other code path honours.
+    """
+    if host:
+        _throttle.wait(host)
+
+
 def polite_client(**kwargs) -> httpx.Client:
     headers = {"User-Agent": settings.user_agent, **kwargs.pop("headers", {})}
     return httpx.Client(

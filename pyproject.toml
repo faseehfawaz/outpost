@@ -28,9 +28,28 @@ dependencies = [
     "boto3>=1.34",
     "prometheus-client>=0.20",
     "sentry-sdk[fastapi]>=2.5",
+    # Authenticated encryption for indicators.full_value_encrypted (pkintel.crypto).
+    # Previously that column held plaintext, despite its name.
+    "cryptography>=42.0",
+    # Certificate Transparency firehose. Replaces crt.sh polling, which is slow,
+    # rate-limited and frequently 502s; the firehose surfaces a lookalike domain
+    # within seconds of cert issuance, often before the phishing page is served.
+    "websockets>=12.0",
+    # DNS + passive-DNS pivoting: resolve hosts to IPs so sibling phishing sites
+    # on the same infrastructure cluster together without needing a kit archive.
+    "dnspython>=2.6",
 ]
 
 [project.optional-dependencies]
+# Headless-browser deep triage. Optional because it pulls a ~400 MB Chromium and
+# the pipeline degrades gracefully to static triage without it.
+# On Arch, prefer the system browser and skip the bundled download:
+#   pacman -S chromium
+#   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pip install -e ".[render]"
+#   export PKINTEL_RENDER_EXECUTABLE=/usr/bin/chromium
+render = [
+    "playwright>=1.44",
+]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
@@ -62,11 +81,23 @@ select = ["E", "F", "I", "UP", "B", "S", "C4", "SIM"]
 ignore = [
     "S101", "E501", "S105", "S608", "UP042",
     "SIM103", "SIM117", "F841", "S110", "S112",
-    "E402", "B007", "C408"
+    "E402", "B007", "C408",
+    # UP017 rewrites `timezone.utc` to `datetime.UTC`, which only exists on
+    # Python 3.11+. `timezone.utc` is equivalent, works everywhere, and reads
+    # more explicitly. Kept deliberately.
+    "UP017",
+    # SIM114 merges separate `if` branches into one `or`. In the render
+    # request-classifier and the migration parser the branches are separate
+    # *concepts* that happen to share a body; merging them makes the intent
+    # harder to follow.
+    "SIM114",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S", "B"]
+# B008: typer.Option()/Argument() in a default IS the Typer idiom — the call is
+# how you declare the option. Not a mutable-default bug.
+"src/pkintel/cli/*" = ["B008"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

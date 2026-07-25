@@ -20,18 +20,49 @@ from bs4 import BeautifulSoup
 
 # mmh3 favicon hash -> brand label.
 #
-# HOW TO GROW THIS: fetch a known brand's real favicon (e.g. GET
-# https://www.paypal.com/favicon.ico), run the raw bytes through
-# ``favicon_mmh3``, and paste the returned int here mapped to the brand. The
-# same recipe is used by urlscan.io's ``page.favicon.hash`` and Shodan's
-# ``http.favicon.hash``, so values found there are directly reusable.
+# Populated from measured data captured by ``pkintel refs capture``, which
+# fetches each brand's real favicon once and records its hash. The same recipe
+# is used by urlscan.io's ``page.favicon.hash`` and Shodan's
+# ``http.favicon.hash``, so values found there are directly reusable and can be
+# added to the JSON file by hand.
 #
-# The two entries below are ILLUSTRATIVE placeholders (not measured) to show the
-# shape; replace them with real, measured hashes before relying on them.
-KNOWN_FAVICON_HASHES: dict[int, str] = {
-    116323821: "Microsoft",
-    -235701012: "Emirates NBD",
-}
+# This dict was previously seeded with two hardcoded values whose own comment
+# admitted they were "ILLUSTRATIVE placeholders (not measured)". That is worse
+# than an empty dict: a fabricated hash that happens to collide with a real
+# favicon awards a spurious +20 (``favicon_known``) and up to +25 with the
+# corroboration bonus, attributing a page to a brand on the strength of a number
+# nobody ever measured. We now start empty and only ever hold measured values.
+KNOWN_FAVICON_HASHES: dict[int, str] = {}
+
+
+def _load_measured_favicons() -> None:
+    """Load measured favicon hashes written by ``pkintel refs capture``.
+
+    Best-effort and silent: if the reference set has not been captured yet the
+    favicon signal simply never fires, which is the correct degradation. We do
+    not guess at what a brand's icon hashes to.
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        from pkintel.config import settings
+
+        path = Path(settings.render_screenshot_dir) / "reference" / "favicons.json"
+        if not path.is_file():
+            return
+        data = json.loads(path.read_text())
+    except Exception:  # noqa: BLE001 - never break import of a pure module
+        return
+
+    for raw_hash, brand in data.items():
+        try:
+            KNOWN_FAVICON_HASHES[int(raw_hash)] = str(brand)
+        except (TypeError, ValueError):
+            continue
+
+
+_load_measured_favicons()
 
 
 def favicon_mmh3(data: bytes) -> int:

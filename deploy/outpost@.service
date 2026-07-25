@@ -1,0 +1,74 @@
+# Templated per-stage worker unit.
+#
+# Replaces the single outpost-pipeline.service, which ran
+# `pkintel run all --loop` — all six stages SEQUENTIALLY in one process. That
+# meant a slow stage blocked every stage behind it: a long ingest cycle stalled
+# triage, and a single 200 MB kit download stalled takedowns. It also used one
+# CPU thread out of twelve.
+#
+# Now each stage is its own service, scheduled independently by the kernel:
+#
+#   systemctl enable --now outpost@ingest outpost@triage outpost@kithunt \
+#                          outpost@analyze outpost@cluster outpost@takedown \
+#                          outpost@reaper
+#
+# Per-stage interval and batch size come from the environment (see below), so a
+# stage can be tuned without touching any other.
+
+[Unit]
+Description=Outpost pipeline stage: %i
+Documentation=https://github.com/faseehfawaz/outpost
+After=network-online.target postgresql.service docker.service
+Wants=network-online.target postgresql.service
+PartOf=outpost.target
+
+[Service]
+Type=simple
+User=outpost
+Group=outpost
+WorkingDirectory=/opt/heapleap
+EnvironmentFile=/opt/heapleap/.env
+# Per-stage overrides, e.g. /opt/heapleap/.env.triage can set
+# PKINTEL_TRIAGE_WORKERS=96. Missing files are ignored (leading '-').
+EnvironmentFile=-/opt/heapleap/.env.%i
+Environment=OUTPOST_STAGE=%i
+Environment=OUTPOST_INTERVAL=30
+
+ExecStart=/opt/heapleap/venv/bin/pkintel run %i --loop --interval ${OUTPOST_INTERVAL}
+
+Restart=always
+RestartSec=10
+# Do not spin forever on a stage that is crash-looping (e.g. bad config).
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=outpost-%i
+
+# --- resource limits (12 threads / 32 GB box) ---------------------------------
+# 64+ concurrent sockets per stage plus Chromium needs far more than the default.
+LimitNOFILE=262144
+# Keep any single stage from OOMing the box; the analyzer is the greedy one.
+MemoryMax=8G
+MemoryHigh=6G
+# Nice the bulk stages so interactive API latency never suffers.
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=5
+
+# --- hardening ----------------------------------------------------------------
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/heapleap/.storage /opt/heapleap/logs /dev/shm
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

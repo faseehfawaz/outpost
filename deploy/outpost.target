@@ -1,0 +1,28 @@
+# Group target so the whole pipeline starts/stops as one unit:
+#
+#   systemctl start outpost.target     # all stages up
+#   systemctl stop  outpost.target     # all stages down
+#   systemctl status outpost.target
+#
+# Individual stages remain independently controllable:
+#   systemctl restart outpost@triage
+
+[Unit]
+Description=Outpost threat-intelligence pipeline (all stages)
+Documentation=https://github.com/faseehfawaz/outpost
+After=network-online.target postgresql.service
+Wants=outpost@ingest.service \
+      outpost@triage.service \
+      outpost@kithunt.service \
+      outpost@analyze.service \
+      outpost@cluster.service \
+      outpost@enrich.service \
+      outpost@pivot.service \
+      outpost@takedown.service \
+      outpost@verify.service \
+      outpost@reaper.service \
+      outpost-api.service \
+      outpost-certstream.service
+
+[Install]
+WantedBy=multi-user.target

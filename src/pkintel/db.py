@@ -36,7 +36,18 @@ def get_pool() -> ConnectionPool:
             conninfo=settings.db_dsn,
             min_size=settings.db_pool_min,
             max_size=settings.db_pool_max,
-            kwargs={"row_factory": dict_row, "autocommit": False},
+            kwargs={
+                "row_factory": dict_row,
+                "autocommit": False,
+                # Bound how long a single connection attempt can block. Without
+                # this, an unreachable database causes every caller — including
+                # the /metrics scrape and the /health endpoint — to hang for the
+                # OS TCP timeout, turning a database blip into an apparent total
+                # outage of the observability surface.
+                "connect_timeout": settings.db_connect_timeout_s,
+            },
+            # Bound how long a caller waits for a free pooled connection.
+            timeout=settings.db_pool_timeout_s,
             open=True,
         )
     return _pool
@@ -90,6 +101,7 @@ def claim_rows(
     limit: int = 10,
     extra_where: str = "",
     returning: str = "*",
+    order_by: str = "priority DESC, id",
 ) -> list[dict[str, Any]]:
     """Atomically claim up to ``limit`` rows from a state-machine table.
 
@@ -97,8 +109,16 @@ def claim_rows(
     ``locked_by``/``locked_at`` in a single statement, using SKIP LOCKED so
     concurrent workers never collide. Returns the claimed rows.
 
-    ``table`` / ``ready_col`` are interpolated (trusted, internal callers only —
-    never user input); row *values* are always parameterised.
+    ``table`` / ``ready_col`` / ``order_by`` are interpolated (trusted, internal
+    callers only — never user input); row *values* are always parameterised.
+
+    Ordering
+    --------
+    Defaults to ``priority DESC, id`` — highest-priority work first, FIFO within
+    a priority band. This matters: the previous ``ORDER BY id`` was strict FIFO,
+    so a certstream lookalike hit minutes old queued behind every stale URL in
+    the table, and the freshest, most actionable intelligence was worked *last*.
+    Tables without a ``priority`` column must pass ``order_by="id"``.
     """
     where = f"{ready_col} = %(ready)s"
     if extra_where:
@@ -107,7 +127,7 @@ def claim_rows(
         WITH claimed AS (
             SELECT id FROM {table}
             WHERE {where}
-            ORDER BY id
+            ORDER BY {order_by}
             FOR UPDATE SKIP LOCKED
             LIMIT %(limit)s
         )
@@ -128,6 +148,135 @@ def claim_rows(
     with connection() as conn, conn.cursor() as cur:
         cur.execute(sql, params)
         return cur.fetchall()
+
+
+def execute_many(sql: str, rows: Sequence[Sequence[Any]]) -> int:
+    """Run ``sql`` once per row inside a SINGLE transaction/round-trip batch.
+
+    The runners previously issued one ``execute()`` per row, and each
+    ``execute()`` opens its own pooled connection *and* its own transaction —
+    so a 50-row triage batch cost 100+ transactions (one per update, one per
+    audit). At 64-way concurrency that becomes the bottleneck. ``executemany``
+    with a pipelined psycopg3 connection collapses it to one.
+    """
+    if not rows:
+        return 0
+    with connection() as conn, conn.cursor() as cur:
+        cur.executemany(sql, rows)
+        return cur.rowcount
+
+
+# --------------------------------------------------------------------------- reaper
+# (table, state column, busy value, ready value to restore, lease setting name)
+_REAPABLE: tuple[tuple[str, str, str, str, str], ...] = (
+    ("urls", "triage_state", "triaging", "new", "reaper_lease_triage_s"),
+    ("urls", "kithunt_state", "hunting", "pending", "reaper_lease_kithunt_s"),
+    ("kits", "analysis_state", "analyzing", "stored", "reaper_lease_analyze_s"),
+    ("takedowns", "status", "sending", "draft", "reaper_lease_takedown_s"),
+    ("hosts", "enrich_state", "enriching", "pending", "reaper_lease_enrich_s"),
+)
+
+
+def reap_stuck_rows() -> dict[str, int]:
+    """Return rows abandoned by dead workers to their ready state.
+
+    Why this exists
+    ---------------
+    ``claim_rows`` flips a row to a busy state and stamps ``locked_at``, but
+    nothing ever released it. A worker killed by OOM, SIGKILL, a power cut, or a
+    ``systemctl restart`` mid-batch left its rows pinned in
+    ``triaging``/``hunting``/``analyzing``/``sending`` **permanently**. Nothing
+    logged it and nothing retried them, so the queue leaked a few rows per crash
+    and slowly bled out while every dashboard still looked green.
+
+    A row is reaped when its lease (``settings.reaper_lease_*_s``) has expired.
+    Leases are set well above the slowest legitimate run of each stage so we
+    never reap live work.
+
+    Poison rows: a row that repeatedly kills its worker would loop forever, so
+    after ``settings.reaper_max_reaps`` we park it in ``error`` instead.
+    Returns ``{"urls.triage_state": n, ...}`` counts of rows recovered.
+    """
+    if not settings.reaper_enabled:
+        return {}
+
+    recovered: dict[str, int] = {}
+    for table, col, busy, ready, lease_attr in _REAPABLE:
+        lease_s = getattr(settings, lease_attr)
+        sql = f"""
+            UPDATE {table}
+            SET {col} = CASE
+                    WHEN reap_count + 1 >= %(max_reaps)s THEN 'error'
+                    ELSE %(ready)s
+                END,
+                reap_count = reap_count + 1,
+                locked_by = NULL,
+                locked_at = NULL
+            WHERE {col} = %(busy)s
+              AND locked_at IS NOT NULL
+              AND locked_at < now() - make_interval(secs => %(lease)s)
+            RETURNING id, reap_count
+        """
+        params = {
+            "busy": busy,
+            "ready": ready,
+            "lease": lease_s,
+            "max_reaps": settings.reaper_max_reaps,
+        }
+        try:
+            with connection() as conn, conn.cursor() as cur:
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+        except Exception as exc:  # noqa: BLE001 - the reaper must never take the pipeline down
+            log.warning("reaper_failed", table=table, column=col, error=str(exc))
+            continue
+
+        if rows:
+            poisoned = sum(1 for r in rows if r["reap_count"] >= settings.reaper_max_reaps)
+            recovered[f"{table}.{col}"] = len(rows)
+            log.warning(
+                "reaped_stuck_rows",
+                table=table,
+                column=col,
+                count=len(rows),
+                poisoned=poisoned,
+                lease_s=lease_s,
+            )
+            record_audit(
+                "reaper",
+                "reaped",
+                target=f"{table}.{col}",
+                count=len(rows),
+                poisoned=poisoned,
+            )
+            try:
+                from pkintel.metrics import rows_reaped
+
+                rows_reaped.labels(queue=f"{table}.{col}").inc(len(rows))
+            except Exception:  # noqa: BLE001, S110 - metrics must never break the reaper
+                pass
+    return recovered
+
+
+def queue_depths() -> dict[str, int]:
+    """Snapshot of every queue's depth. Feeds Prometheus gauges and /health."""
+    sql = """
+        SELECT 'triage_new'      AS q, count(*) AS n FROM urls  WHERE triage_state = 'new'
+        UNION ALL SELECT 'triage_busy',   count(*) FROM urls  WHERE triage_state = 'triaging'
+        UNION ALL SELECT 'kithunt_pending', count(*) FROM urls WHERE kithunt_state = 'pending'
+        UNION ALL SELECT 'kithunt_busy',  count(*) FROM urls  WHERE kithunt_state = 'hunting'
+        UNION ALL SELECT 'analyze_stored', count(*) FROM kits WHERE analysis_state = 'stored'
+        UNION ALL SELECT 'analyze_busy',  count(*) FROM kits  WHERE analysis_state = 'analyzing'
+        UNION ALL SELECT 'takedown_draft', count(*) FROM takedowns WHERE status = 'draft'
+        UNION ALL SELECT 'takedown_sent',  count(*) FROM takedowns WHERE status = 'sent'
+        UNION ALL SELECT 'enrich_pending', count(*) FROM hosts WHERE enrich_state = 'pending'
+        UNION ALL SELECT 'enrich_busy',    count(*) FROM hosts WHERE enrich_state = 'enriching'
+    """
+    try:
+        return {r["q"]: r["n"] for r in fetch_all(sql)}
+    except Exception as exc:  # noqa: BLE001
+        log.warning("queue_depths_failed", error=str(exc))
+        return {}
 
 
 def record_audit(actor: str, action: str, target: str | None = None, **detail: Any) -> None:

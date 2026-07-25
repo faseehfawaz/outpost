@@ -12,10 +12,21 @@ htmlcov/
 
 # env & secrets
 .env
+.env.*
+!.env.example
 *.local
 scratch/
-*.sql
+
+# Database DUMPS must never be committed — they contain live operational data.
+# NOTE: this was previously a blanket `*.sql`, which also silently ignored
+# db/migrations/*.sql. Migrations 001 and 002 predate the rule so they stayed
+# tracked, but every NEW migration was invisible to git — meaning a fresh clone
+# or a redeploy would run against an out-of-date schema with no warning.
+# Ignore dumps specifically; migrations are source code and must be committed.
+*_dump.sql
 deploy/outpost_dump.sql
+*.dump
+*.sql.gz
 
 # local quarantine storage — NEVER commit collected kits
 .storage/

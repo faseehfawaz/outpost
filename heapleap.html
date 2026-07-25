@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>heapleap — Cyber Defense Suite</title>
+<meta name="description" content="heapleap is a modular cyber defense suite. Outpost, its live module, ingests threat feeds, fingerprints attacker infrastructure, and files takedown notices — automatically.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23050607'/%3E%3Ccircle cx='16' cy='7' r='3' fill='%235eebff' fill-opacity='.7'/%3E%3Ccircle cx='7' cy='24' r='2.4' fill='%235eebff' fill-opacity='.4'/%3E%3Ccircle cx='25' cy='24' r='2.4' fill='%2339ff88'/%3E%3Cline x1='16' y1='9.5' x2='8' y2='22' stroke='%235eebff' stroke-opacity='.4' stroke-width='1.4'/%3E%3Cline x1='16' y1='9.5' x2='24' y2='22' stroke='%2339ff88' stroke-width='1.6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --void:#050607;
+  --void-2:#080a0b;
+  --surface:#0d1314;
+  --surface-2:#121a1b;
+  --line:rgba(233,237,239,.09);
+  --line-strong:rgba(233,237,239,.18);
+  --signal:#39ff88;
+  --signal-dim:rgba(57,255,136,.13);
+  --intel:#5eebff;
+  --intel-dim:rgba(94,235,255,.12);
+  --amber:#ffb84d;
+  --amber-dim:rgba(255,184,77,.12);
+  --ink:#e9edef;
+  --muted:#8fa0a3;
+  --muted-2:#5c6a6d;
+
+  --font-display:'Chakra Petch',sans-serif;
+  --font-body:'IBM Plex Sans',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+
+  --ease:cubic-bezier(.16,1,.3,1);
+  --ease-soft:cubic-bezier(.22,1,.36,1);
+
+  --container:1180px;
+}
+
+/* ============================================================
+   RESET / BASE
+   ============================================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;background:var(--void)}
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  opacity:0;
+  animation:body-in .6s var(--ease-soft) .05s forwards;
+}
+@keyframes body-in{to{opacity:1}}
+
+img,svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+ul{list-style:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;line-height:1.08;letter-spacing:-.01em}
+
+::selection{background:var(--signal);color:var(--void)}
+
+::-webkit-scrollbar{width:9px}
+::-webkit-scrollbar-track{background:var(--void)}
+::-webkit-scrollbar-thumb{background:var(--surface-2);border:1px solid var(--line-strong);border-radius:0}
+::-webkit-scrollbar-thumb:hover{background:var(--signal-dim)}
+
+:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+
+.container{width:100%;max-width:var(--container);margin-inline:auto;padding-inline:28px}
+
+/* subtle grain */
+.noise{
+  position:fixed;inset:0;z-index:998;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.progress-bar{
+  position:fixed;top:0;left:0;height:2px;width:0%;z-index:1000;
+  background:linear-gradient(90deg,var(--signal),var(--intel));
+  box-shadow:0 0 12px rgba(57,255,136,.5);
+}
+
+/* ============================================================
+   TYPE UTILITIES
+   ============================================================ */
+.eyebrow{
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--intel);display:flex;align-items:center;gap:10px;margin-bottom:18px;
+}
+.eyebrow::before{content:'';width:22px;height:1px;background:var(--intel);opacity:.6}
+
+.section-title{font-size:clamp(28px,4.2vw,44px);max-width:16ch}
+.section-lead{color:var(--muted);font-size:17px;max-width:56ch;margin-top:16px}
+
+/* ============================================================
+   REVEAL SYSTEM
+   ============================================================ */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.is-visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1.is-visible{transition-delay:.08s}
+.reveal-delay-2.is-visible{transition-delay:.16s}
+.reveal-delay-3.is-visible{transition-delay:.24s}
+.reveal-delay-4.is-visible{transition-delay:.32s}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn{
+  position:relative;display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--font-mono);font-size:13px;letter-spacing:.05em;text-transform:uppercase;font-weight:500;
+  padding:15px 26px;border-radius:2px;isolation:isolate;overflow:hidden;
+  transition:transform .35s var(--ease),border-color .35s var(--ease),background .35s var(--ease);
+}
+.btn-primary{background:var(--signal);color:#00160a;border:1px solid var(--signal)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px -8px rgba(57,255,136,.55)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+.btn-ghost:hover{border-color:var(--intel);color:var(--intel);transform:translateY(-2px)}
+.btn-lg{padding:19px 34px;font-size:14px}
+.btn .glow{
+  position:absolute;inset:-2px;z-index:-1;border-radius:inherit;opacity:0;pointer-events:none;
+  background:radial-gradient(120px circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.35),transparent 60%);
+  transition:opacity .3s;
+}
+.btn:hover .glow{opacity:1}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:900;
+  padding:20px 0;transition:padding .4s var(--ease),background .4s var(--ease),border-color .4s var(--ease);
+  border-bottom:1px solid transparent;
+}
+.nav.is-scrolled{
+  padding:13px 0;background:rgba(5,6,7,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom-color:var(--line);
+}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:26px;height:26px}
+.logo-word{font-family:var(--font-mono);font-size:16px;font-weight:600;letter-spacing:.02em}
+.logo-word .dim{color:var(--muted)}
+
+.nav-links{display:flex;align-items:center;gap:34px}
+.nav-links a{
+  font-family:var(--font-mono);font-size:13px;letter-spacing:.03em;color:var(--muted);position:relative;
+  transition:color .3s;
+}
+.nav-links a::after{
+  content:'';position:absolute;left:0;bottom:-6px;width:0;height:1px;background:var(--signal);transition:width .3s var(--ease);
+}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{width:100%}
+
+.nav-right{display:flex;align-items:center;gap:22px}
+.nav-toggle{display:none;flex-direction:column;gap:5px;width:26px;padding:4px}
+.nav-toggle span{height:2px;background:var(--ink);border-radius:1px;transition:transform .3s var(--ease),opacity .3s}
+
+.nav-mobile{
+  display:none;position:fixed;inset:0 0 auto 0;top:0;z-index:890;
+  background:var(--void-2);border-bottom:1px solid var(--line);
+  padding:90px 28px 34px;transform:translateY(-100%);transition:transform .45s var(--ease);
+}
+.nav-mobile.is-open{transform:translateY(0)}
+.nav-mobile ul{display:flex;flex-direction:column;gap:22px;margin-bottom:26px}
+.nav-mobile a{font-family:var(--font-mono);font-size:18px}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{
+  position:relative;min-height:100vh;display:flex;align-items:center;
+  padding:150px 0 100px;overflow:hidden;
+}
+#graph-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.55}
+.hero::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(60% 55% at 50% 20%,rgba(5,6,7,0) 0%,var(--void) 92%),
+             linear-gradient(180deg,rgba(5,6,7,.2) 0%,var(--void) 100%);
+}
+.hero-inner{position:relative;z-index:2;max-width:880px}
+.hero-title{font-size:clamp(40px,6.6vw,84px);margin-bottom:26px}
+.hero-title .line{display:block;overflow:hidden}
+.hero-title .line-inner{display:block;transform:translateY(110%);transition:transform 1s var(--ease)}
+.hero-title.is-visible .line-inner{transform:translateY(0)}
+.hero-title .line:nth-child(1) .line-inner{transition-delay:.05s}
+.hero-title .line:nth-child(2) .line-inner{transition-delay:.16s}
+.hero-title .line:nth-child(3) .line-inner{transition-delay:.27s;color:var(--signal)}
+
+.hero-sub{font-size:18px;color:var(--muted);max-width:60ch;margin-bottom:38px}
+.hero-sub strong{color:var(--ink);font-weight:500}
+.hero-ctas{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:64px}
+
+.scroll-cue{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;color:var(--muted-2);text-transform:uppercase}
+.scroll-cue .rail{width:1px;height:34px;background:var(--line-strong);position:relative;overflow:hidden}
+.scroll-cue .rail::before{content:'';position:absolute;top:-40%;left:0;width:100%;height:40%;background:var(--signal);animation:railmove 1.8s ease-in-out infinite}
+@keyframes railmove{0%{top:-40%}100%{top:100%}}
+
+/* ============================================================
+   TICKER
+   ============================================================ */
+.ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--void-2);overflow:hidden;position:relative;z-index:3}
+.ticker-track{display:flex;width:max-content;animation:ticker 32s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-set{display:flex;align-items:center;flex-shrink:0}
+.ticker-item{
+  display:flex;align-items:center;gap:10px;padding:14px 34px;
+  font-family:var(--font-mono);font-size:12.5px;letter-spacing:.06em;color:var(--muted);white-space:nowrap;
+  border-right:1px solid var(--line);
+}
+.ticker-item b{color:var(--ink);font-weight:600}
+.ticker-item.live{color:var(--signal)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal);animation:pulse-dot 1.6s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.72)}}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ============================================================
+   SUITE
+   ============================================================ */
+.suite{padding:150px 0 130px;position:relative}
+.suite-head{max-width:640px;margin-bottom:70px}
+
+.graph-wrap{position:relative;margin:0 auto 90px;max-width:920px}
+.entity-graph{width:100%;height:auto;overflow:visible}
+.graph-path{fill:none;stroke-linecap:round;transition:stroke-dashoffset 1.6s var(--ease)}
+.graph-path.p-outpost{stroke:var(--signal);stroke-width:2.4}
+.graph-path.p-dim{stroke:var(--intel);stroke-width:1.3;opacity:.45}
+.node-core circle{fill:var(--surface-2);stroke:var(--line-strong);stroke-width:1.5}
+.node-outpost circle.ring{fill:rgba(57,255,136,.08);stroke:var(--signal);stroke-width:1.6;animation:ringpulse 2.4s ease-in-out infinite}
+.node-outpost circle.core-dot{fill:var(--signal)}
+@keyframes ringpulse{0%,100%{opacity:.5;r:26}50%{opacity:1;r:29}}
+.node-sat circle{fill:var(--surface);stroke:var(--intel);stroke-width:1.2;opacity:.7}
+.graph-label{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;fill:var(--muted);text-transform:uppercase}
+.graph-label.strong{fill:var(--ink);font-size:13px;font-weight:600}
+.graph-label.core-label{fill:var(--muted-2)}
+.graph-tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;fill:var(--signal)}
+.graph-cap{text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--muted-2);letter-spacing:.04em;margin-top:6px}
+
+.module-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+.module-card{
+  grid-column:span 12;
+  background:linear-gradient(165deg,rgba(255,255,255,.035),rgba(255,255,255,.008));
+  border:1px solid var(--line);border-radius:16px;padding:32px;position:relative;overflow:hidden;
+  transition:border-color .4s var(--ease),transform .15s linear;
+  transform-style:preserve-3d;will-change:transform;
+}
+.module-card::before{
+  content:'';position:absolute;inset:0;opacity:0;transition:opacity .4s;
+  background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(94,235,255,.08),transparent 60%);
+}
+.module-card:hover::before{opacity:1}
+.module-card--live{grid-column:span 12;border-color:rgba(57,255,136,.28)}
+.module-card--live:hover{border-color:rgba(57,255,136,.55)}
+.module-card--dev{grid-column:span 6}
+.module-card--dev:hover{border-color:var(--line-strong)}
+
+.badge{
+  display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.09em;text-transform:uppercase;padding:5px 12px;border-radius:999px;margin-bottom:20px;
+}
+.badge--live{color:var(--signal);background:var(--signal-dim);border:1px solid rgba(57,255,136,.35)}
+.badge--dev{color:var(--amber);background:var(--amber-dim);border:1px solid rgba(255,184,77,.32)}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge--live .dot{animation:pulse-dot 1.6s ease-in-out infinite}
+
+.module-card h3{font-size:26px;margin-bottom:6px}
+.module-card--dev h3{font-size:21px}
+.module-tagline{font-family:var(--font-mono);font-size:12.5px;color:var(--intel);letter-spacing:.03em;margin-bottom:16px}
+.module-card p.module-desc{color:var(--muted);font-size:15px;max-width:60ch;margin-bottom:22px}
+.module-card--dev p.module-desc{font-size:14px;margin-bottom:0}
+.module-link{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:13px;color:var(--signal);letter-spacing:.03em}
+.module-link svg{width:14px;height:14px;transition:transform .3s var(--ease)}
+.module-card--live:hover .module-link svg{transform:translate(3px,-3px)}
+
+.live-row{display:flex;flex-wrap:wrap;gap:28px;margin:6px 0 24px;padding-top:22px;border-top:1px solid var(--line)}
+.live-row .mini-stat{font-family:var(--font-mono)}
+.live-row .mini-stat .n{font-size:20px;color:var(--ink);font-weight:600}
+.live-row .mini-stat .l{font-size:10.5px;color:var(--muted-2);letter-spacing:.08em;text-transform:uppercase;display:block;margin-top:2px}
+
+/* ============================================================
+   OUTPOST DEEP-DIVE
+   ============================================================ */
+.outpost{padding:130px 0;background:linear-gradient(180deg,var(--void-2) 0%,var(--void) 100%);border-top:1px solid var(--line);position:relative}
+.outpost-head{max-width:720px;margin-bottom:64px}
+.outpost-tagline{font-family:var(--font-mono);color:var(--intel);font-size:14px;letter-spacing:.03em;margin:10px 0 22px}
+.outpost-desc{color:var(--muted);font-size:17px;max-width:66ch}
+
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:96px;border-radius:14px;overflow:hidden}
+.stat{background:var(--void);padding:32px 26px}
+.stat .stat-num{font-family:var(--font-display);font-size:clamp(30px,3.4vw,44px);color:var(--ink);font-weight:600;display:block}
+.stat .stat-num.signal{color:var(--signal)}
+.stat .stat-label{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-top:8px}
+
+.pipeline-wrap{position:relative;margin-bottom:60px}
+.pipeline-caption{font-family:var(--font-mono);font-size:12.5px;color:var(--muted-2);letter-spacing:.03em;margin-bottom:36px}
+.pipeline-line-wrap{display:none}
+.pipeline-stages{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;position:relative}
+.pipeline-stages::before{
+  content:'';position:absolute;top:23px;left:4%;right:4%;height:1px;background:var(--line-strong);z-index:0;
+}
+.pipeline-progress{
+  position:absolute;top:23px;left:4%;height:1px;width:0%;background:var(--signal);z-index:1;
+  box-shadow:0 0 8px rgba(57,255,136,.6);transition:width .1s linear;
+}
+.stage{position:relative;z-index:2;padding-top:0}
+.stage-num{
+  width:46px;height:46px;border-radius:50%;background:var(--void);border:1.5px solid var(--line-strong);
+  display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;color:var(--muted-2);
+  margin-bottom:20px;transition:border-color .5s var(--ease),color .5s var(--ease),box-shadow .5s var(--ease);
+}
+.stage.active .stage-num{border-color:var(--signal);color:var(--signal);box-shadow:0 0 16px rgba(57,255,136,.35)}
+.stage h4{font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:8px;color:var(--muted);transition:color .5s var(--ease)}
+.stage.active h4{color:var(--ink)}
+.stage p{font-size:13px;color:var(--muted-2);line-height:1.5}
+
+.outpost-cta{margin-top:70px;display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.outpost-cta .note{font-family:var(--font-mono);font-size:12.5px;color:var(--muted-2)}
+
+/* ============================================================
+   ETHICS
+   ============================================================ */
+.ethics{padding:130px 0}
+.ethics-head{max-width:620px;margin-bottom:60px}
+.ethics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.ethics-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:30px;
+  transition:border-color .4s var(--ease),transform .15s linear;transform-style:preserve-3d;will-change:transform;
+}
+.ethics-card:hover{border-color:var(--line-strong)}
+.ethics-card .num{font-family:var(--font-mono);font-size:12px;color:var(--signal);letter-spacing:.08em;margin-bottom:18px;display:block}
+.ethics-card h3{font-size:19px;margin-bottom:12px}
+.ethics-card p{font-size:14.5px;color:var(--muted);line-height:1.6}
+
+/* ============================================================
+   TECHNOLOGY
+   ============================================================ */
+.technology{padding:110px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--void-2)}
+.technology .container{margin-bottom:50px}
+.tech-head{max-width:560px}
+.marquee{overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.marquee-track{display:flex;width:max-content;animation:ticker 38s linear infinite}
+.marquee:hover .marquee-track{animation-play-state:paused}
+.tech-badge{
+  display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:14px;color:var(--muted);
+  padding:14px 30px;border:1px solid var(--line);border-radius:999px;margin-right:16px;white-space:nowrap;
+  transition:color .3s,border-color .3s;flex-shrink:0;
+}
+.tech-badge:hover{color:var(--intel);border-color:var(--intel-dim)}
+.tech-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--muted-2)}
+
+/* ============================================================
+   CTA BANNER
+   ============================================================ */
+.cta-banner{padding:150px 0;text-align:center;position:relative;overflow:hidden}
+.cta-banner .container{position:relative;z-index:2;max-width:640px}
+.cta-banner h2{font-size:clamp(32px,4.6vw,52px);margin-bottom:20px}
+.cta-banner p{color:var(--muted);font-size:17px;margin-bottom:40px}
+.cta-banner .btn{margin-inline:auto}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.site-footer{border-top:1px solid var(--line);padding:80px 0 30px;background:var(--void-2)}
+.footer-top{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:40px;margin-bottom:60px}
+.footer-brand .logo{margin-bottom:16px}
+.footer-brand p{color:var(--muted);font-size:14px;max-width:32ch}
+.footer-col h5{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);margin-bottom:18px}
+.footer-col ul{display:flex;flex-direction:column;gap:12px}
+.footer-col a{font-size:14px;color:var(--muted);transition:color .3s}
+.footer-col a:hover{color:var(--signal)}
+.status-list{display:flex;flex-direction:column;gap:10px;font-family:var(--font-mono);font-size:12.5px}
+.status-list li{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.status-list .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.status-list .dot.on{background:var(--signal);box-shadow:0 0 6px var(--signal);animation:pulse-dot 1.6s ease-in-out infinite}
+.status-list .dot.off{background:var(--amber)}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;padding-top:30px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:12px;color:var(--muted-2)}
+.footer-bottom a{color:var(--muted-2);transition:color .3s}
+.footer-bottom a:hover{color:var(--signal)}
+
+/* ============================================================
+   PARALLAX BLOBS
+   ============================================================ */
+.blob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;will-change:transform}
+.blob-a{width:520px;height:520px;background:rgba(57,255,136,.10);top:-120px;left:-160px}
+.blob-b{width:460px;height:460px;background:rgba(94,235,255,.08);top:600px;right:-180px}
+.blob-c{width:420px;height:420px;background:rgba(57,255,136,.06);bottom:0;left:20%}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:980px){
+  .nav-links{display:none}
+  .nav-toggle{display:flex}
+  .nav-mobile{display:block}
+  .module-card--dev{grid-column:span 12}
+  .ethics-grid{grid-template-columns:1fr;gap:16px}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .footer-top{grid-template-columns:1fr 1fr;row-gap:36px}
+  .pipeline-stages{grid-template-columns:repeat(3,1fr);row-gap:36px}
+  .pipeline-stages::before,.pipeline-progress{display:none}
+}
+@media (max-width:640px){
+  .hero{padding:130px 0 70px}
+  .hero-ctas{flex-direction:column;align-items:stretch}
+  .hero-ctas .btn{justify-content:center}
+  .suite,.outpost,.ethics,.technology,.cta-banner{padding-block:90px}
+  .stat-row{grid-template-columns:1fr 1fr}
+  .pipeline-stages{grid-template-columns:1fr 1fr}
+  .footer-top{grid-template-columns:1fr}
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .reveal{opacity:1;transform:none}
+  .hero-title .line-inner{transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a href="#hero" class="logo" aria-label="heapleap home">
+      <svg class="logo-mark" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="7" r="3" fill="var(--intel)" fill-opacity=".8"/>
+        <circle cx="7" cy="24" r="2.6" fill="var(--intel)" fill-opacity=".45"/>
+        <circle cx="25" cy="24" r="2.6" fill="var(--signal)"/>
+        <line x1="16" y1="9.6" x2="8" y2="22" stroke="var(--intel)" stroke-opacity=".4" stroke-width="1.3"/>
+        <line x1="16" y1="9.6" x2="24" y2="22" stroke="var(--signal)" stroke-width="1.5"/>
+      </svg>
+      <span class="logo-word">heap<span class="dim">leap</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#suite">Suite</a>
+      <a href="#outpost">Outpost</a>
+      <a href="#ethics">Ethics</a>
+      <a href="#technology">Technology</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-primary" href="https://outpost.heapleap.tech">
+        Launch Outpost
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        <span class="glow"></span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="nav-mobile" id="navMobile">
+  <ul>
+    <li><a href="#suite">Suite</a></li>
+    <li><a href="#outpost">Outpost</a></li>
+    <li><a href="#ethics">Ethics</a></li>
+    <li><a href="#technology">Technology</a></li>
+  </ul>
+  <a class="btn btn-primary" href="https://outpost.heapleap.tech" style="width:100%;justify-content:center">Launch Outpost</a>
+</div>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="hero">
+  <canvas id="graph-canvas"></canvas>
+  <div class="blob blob-a" data-speed="0.15"></div>
+
+  <div class="container hero-inner">
+    <p class="eyebrow reveal">Heapleap // Cyber Defense Suite</p>
+    <h1 class="hero-title reveal" id="heroTitle">
+      <span class="line"><span class="line-inner">We watch.</span></span>
+      <span class="line"><span class="line-inner">We fingerprint.</span></span>
+      <span class="line"><span class="line-inner">We take it down.</span></span>
+    </h1>
+    <p class="hero-sub reveal reveal-delay-2">
+      <strong>Outpost</strong>, our live module, ingests eight public threat feeds and a real-time certificate stream, scores every candidate against UAE-first brand signals, and automatically dispatches takedown notices — every 14 minutes, around the clock. Four more modules, extending the same threat graph, are underway.
+    </p>
+    <div class="hero-ctas reveal reveal-delay-3">
+      <a class="btn btn-primary" href="https://outpost.heapleap.tech">
+        Launch Outpost
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        <span class="glow"></span>
+      </a>
+      <a class="btn btn-ghost" href="#suite">
+        Explore the suite
+        <span class="glow"></span>
+      </a>
+    </div>
+    <div class="scroll-cue reveal reveal-delay-4">
+      <span class="rail"></span>
+      Scroll
+    </div>
+  </div>
+</section>
+
+<!-- ============ TICKER ============ -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <div class="ticker-set">
+      <span class="ticker-item live"><span class="live-dot"></span>LIVE</span>
+      <span class="ticker-item"><b>4,016+</b>&nbsp;URLs ingested</span>
+      <span class="ticker-item"><b>12</b>&nbsp;confirmed phish active</span>
+      <span class="ticker-item"><b>40+</b>&nbsp;takedown notices filed</span>
+      <span class="ticker-item"><b>8</b>&nbsp;feed sources</span>
+      <span class="ticker-item">new cycle every <b>14 min</b></span>
+    </div>
+    <div class="ticker-set">
+      <span class="ticker-item live"><span class="live-dot"></span>LIVE</span>
+      <span class="ticker-item"><b>4,016+</b>&nbsp;URLs ingested</span>
+      <span class="ticker-item"><b>12</b>&nbsp;confirmed phish active</span>
+      <span class="ticker-item"><b>40+</b>&nbsp;takedown notices filed</span>
+      <span class="ticker-item"><b>8</b>&nbsp;feed sources</span>
+      <span class="ticker-item">new cycle every <b>14 min</b></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SUITE ============ -->
+<section class="suite" id="suite">
+  <div class="container">
+    <div class="suite-head">
+      <p class="eyebrow reveal">The Suite</p>
+      <h2 class="section-title reveal">One entity graph.<br>Five ways to fight back.</h2>
+      <p class="section-lead reveal reveal-delay-1">Every heapleap module reads and writes the same domain, host and organization graph. A detection surfaced by one module can trigger a response filed by another — automatically, without a human stitching the two together.</p>
+    </div>
+
+    <div class="graph-wrap reveal reveal-delay-2">
+      <svg class="entity-graph" viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
+        <path id="path-outpost" class="graph-path p-outpost" d="M450,55 L450,205"/>
+        <path id="path-herald" class="graph-path p-dim" d="M450,55 Q200,200 100,410"/>
+        <path id="path-atlas" class="graph-path p-dim" d="M450,55 Q360,240 300,430"/>
+        <path id="path-horizon" class="graph-path p-dim" d="M450,55 Q540,240 600,430"/>
+        <path id="path-mirage" class="graph-path p-dim" d="M450,55 Q700,200 800,410"/>
+
+        <circle r="4" fill="var(--signal)"><animateMotion dur="2.4s" repeatCount="indefinite"><mpath href="#path-outpost"/></animateMotion></circle>
+        <circle r="3" fill="var(--intel)" opacity=".8"><animateMotion dur="6s" begin="0s" repeatCount="indefinite"><mpath href="#path-herald"/></animateMotion></circle>
+        <circle r="3" fill="var(--intel)" opacity=".8"><animateMotion dur="6.6s" begin="1.4s" repeatCount="indefinite"><mpath href="#path-atlas"/></animateMotion></circle>
+        <circle r="3" fill="var(--intel)" opacity=".8"><animateMotion dur="6.3s" begin="2.6s" repeatCount="indefinite"><mpath href="#path-horizon"/></animateMotion></circle>
+        <circle r="3" fill="var(--intel)" opacity=".8"><animateMotion dur="7s" begin=".8s" repeatCount="indefinite"><mpath href="#path-mirage"/></animateMotion></circle>
+
+        <g class="node-core">
+          <circle cx="450" cy="55" r="18"/>
+          <text x="450" y="10" text-anchor="middle" class="graph-label core-label">core.orgs · domains · hosts</text>
+        </g>
+
+        <g class="node-outpost">
+          <circle class="ring" cx="450" cy="205" r="26"/>
+          <circle class="core-dot" cx="450" cy="205" r="9"/>
+          <text x="450" y="250" text-anchor="middle" class="graph-label strong">Outpost</text>
+          <text x="450" y="267" text-anchor="middle" class="graph-tag">● LIVE</text>
+        </g>
+
+        <g class="node-sat"><circle cx="100" cy="410" r="13"/><text x="100" y="440" text-anchor="middle" class="graph-label">Herald</text></g>
+        <g class="node-sat"><circle cx="300" cy="430" r="13"/><text x="300" y="460" text-anchor="middle" class="graph-label">Atlas</text></g>
+        <g class="node-sat"><circle cx="600" cy="430" r="13"/><text x="600" y="460" text-anchor="middle" class="graph-label">Horizon</text></g>
+        <g class="node-sat"><circle cx="800" cy="410" r="13"/><text x="800" y="440" text-anchor="middle" class="graph-label">Mirage</text></g>
+      </svg>
+      <p class="graph-cap">1 module live · 4 modules extending the graph</p>
+    </div>
+
+    <div class="module-grid">
+      <article class="module-card module-card--live reveal">
+        <span class="badge badge--live"><span class="dot"></span>Live</span>
+        <h3>Outpost</h3>
+        <p class="module-tagline">Threat Intelligence &amp; Automated Takedown</p>
+        <p class="module-desc">Finds active phishing campaigns before they do more damage — ingests public feeds and certificate logs, fingerprints attacker kits, and files takedown notices with the registrars and hosts responsible.</p>
+        <div class="live-row">
+          <div class="mini-stat"><span class="n">4,016+</span><span class="l">URLs ingested</span></div>
+          <div class="mini-stat"><span class="n">12</span><span class="l">Confirmed phish</span></div>
+          <div class="mini-stat"><span class="n">40+</span><span class="l">Takedowns filed</span></div>
+        </div>
+        <a class="module-link" href="https://outpost.heapleap.tech">
+          Launch Outpost
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        </a>
+      </article>
+
+      <article class="module-card module-card--dev reveal">
+        <span class="badge badge--dev"><span class="dot"></span>In development</span>
+        <h3>Herald</h3>
+        <p class="module-tagline">Email Authentication Posture Scanner</p>
+        <p class="module-desc">SPF, DKIM and DMARC analysis that gives a verdict, not just a record dump.</p>
+      </article>
+
+      <article class="module-card module-card--dev reveal">
+        <span class="badge badge--dev"><span class="dot"></span>In development</span>
+        <h3>Atlas</h3>
+        <p class="module-tagline">Threat Intelligence Producer</p>
+        <p class="module-desc">A STIX/TAXII feed turning Outpost's findings into structured, shareable intelligence.</p>
+      </article>
+
+      <article class="module-card module-card--dev reveal">
+        <span class="badge badge--dev"><span class="dot"></span>In development</span>
+        <h3>Horizon</h3>
+        <p class="module-tagline">External Attack Surface Monitor</p>
+        <p class="module-desc">Watches certificate transparency logs to catch lookalike domains at the moment they're issued.</p>
+      </article>
+
+      <article class="module-card module-card--dev reveal">
+        <span class="badge badge--dev"><span class="dot"></span>In development</span>
+        <h3>Mirage</h3>
+        <p class="module-tagline">AI-Generated Lure Detection</p>
+        <p class="module-desc">Telemetry on LLM abuse inside phishing kits — and the lures they generate.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OUTPOST ============ -->
+<section class="outpost" id="outpost">
+  <div class="blob blob-b" data-speed="-0.1"></div>
+  <div class="container">
+    <div class="outpost-head">
+      <p class="eyebrow reveal">Live Module</p>
+      <h2 class="section-title reveal" style="max-width:none">Outpost</h2>
+      <p class="outpost-tagline reveal reveal-delay-1">Threat Intelligence &amp; Automated Takedown Platform</p>
+      <p class="outpost-desc reveal reveal-delay-2">Outpost is a passive threat-intelligence platform built to find active phishing campaigns before they cause more damage. It watches public feeds and live certificate issuance, scores candidates against a UAE-first brand model — Emirates NBD, ADCB, RTA, Etisalat, UAE PASS — pulls down the kits attackers leave exposed, clusters them by code similarity, and automatically notifies the registrars and hosts responsible for taking them offline.</p>
+    </div>
+
+    <div class="stat-row reveal reveal-delay-2">
+      <div class="stat"><span class="stat-num signal" data-count="4016" data-suffix="+">0</span><span class="stat-label">URLs ingested</span></div>
+      <div class="stat"><span class="stat-num" data-count="12">0</span><span class="stat-label">Confirmed phish</span></div>
+      <div class="stat"><span class="stat-num signal" data-count="40" data-suffix="+">0</span><span class="stat-label">Takedowns filed</span></div>
+      <div class="stat"><span class="stat-num" data-count="8">0</span><span class="stat-label">Feed sources</span></div>
+    </div>
+
+    <div class="pipeline-wrap reveal">
+      <p class="pipeline-caption">The pipeline · one PostgreSQL state machine, six stages, a full cycle every 14 minutes</p>
+      <div class="pipeline-stages" id="pipelineStages">
+        <div class="pipeline-progress" id="pipelineProgress"></div>
+        <div class="stage" data-index="0">
+          <div class="stage-num">01</div>
+          <h4>Ingestion</h4>
+          <p>8 public feeds plus a live Certificate Transparency stream, merged into one queue.</p>
+        </div>
+        <div class="stage" data-index="1">
+          <div class="stage-num">02</div>
+          <h4>Triage</h4>
+          <p>Favicon and logo hashing, DOM signals and hostname patterns score every candidate 0–100.</p>
+        </div>
+        <div class="stage" data-index="2">
+          <div class="stage-num">03</div>
+          <h4>Kit Hunter</h4>
+          <p>Passive probing for kit archives attackers leave exposed on the host.</p>
+        </div>
+        <div class="stage" data-index="3">
+          <div class="stage-num">04</div>
+          <h4>Sandbox</h4>
+          <p>Static deobfuscation unpacks the kit and surfaces attacker exfil channels.</p>
+        </div>
+        <div class="stage" data-index="4">
+          <div class="stage-num">05</div>
+          <h4>Clustering</h4>
+          <p>Fuzzy hashing and file-overlap group kits into threat-actor profiles.</p>
+        </div>
+        <div class="stage" data-index="5">
+          <div class="stage-num">06</div>
+          <h4>Takedown</h4>
+          <p>RDAP-enriched abuse notices go out to the registrar or host — automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="outpost-cta reveal">
+      <a class="btn btn-primary" href="https://outpost.heapleap.tech">
+        Launch Outpost
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        <span class="glow"></span>
+      </a>
+      <span class="note">outpost.heapleap.tech</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ETHICS ============ -->
+<section class="ethics" id="ethics">
+  <div class="container">
+    <div class="ethics-head">
+      <p class="eyebrow reveal">How We Operate</p>
+      <h2 class="section-title reveal">A passive-research line we don't cross.</h2>
+    </div>
+    <div class="ethics-grid">
+      <article class="ethics-card reveal">
+        <span class="num">01</span>
+        <h3>Passive research only</h3>
+        <p>Outpost only retrieves what's already served to any visitor over standard HTTP. No brute-forcing, no exploits, no authentication bypass.</p>
+      </article>
+      <article class="ethics-card reveal reveal-delay-1">
+        <span class="num">02</span>
+        <h3>Victim data protection</h3>
+        <p>Live credentials are never logged, stored, or transmitted. Every exfil channel is hashed or redacted before it touches a database.</p>
+      </article>
+      <article class="ethics-card reveal reveal-delay-2">
+        <span class="num">03</span>
+        <h3>No attack execution</h3>
+        <p>Kits are dissected in an isolated sandbox. Attacker code is analyzed — never run.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TECHNOLOGY ============ -->
+<section class="technology" id="technology">
+  <div class="container">
+    <div class="tech-head">
+      <p class="eyebrow reveal">Under The Hood</p>
+      <h2 class="section-title reveal">Built on tools that don't need to prove themselves.</h2>
+    </div>
+  </div>
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <div class="ticker-set">
+        <span class="tech-badge"><span class="dot"></span>Python 3.12</span>
+        <span class="tech-badge"><span class="dot"></span>FastAPI</span>
+        <span class="tech-badge"><span class="dot"></span>PostgreSQL</span>
+        <span class="tech-badge"><span class="dot"></span>Psycopg 3</span>
+        <span class="tech-badge"><span class="dot"></span>HTTPX</span>
+        <span class="tech-badge"><span class="dot"></span>TLSH</span>
+        <span class="tech-badge"><span class="dot"></span>Pillow / ImageHash</span>
+        <span class="tech-badge"><span class="dot"></span>Docker</span>
+        <span class="tech-badge"><span class="dot"></span>GitHub Actions</span>
+        <span class="tech-badge"><span class="dot"></span>Cloudflare R2</span>
+      </div>
+      <div class="ticker-set">
+        <span class="tech-badge"><span class="dot"></span>Python 3.12</span>
+        <span class="tech-badge"><span class="dot"></span>FastAPI</span>
+        <span class="tech-badge"><span class="dot"></span>PostgreSQL</span>
+        <span class="tech-badge"><span class="dot"></span>Psycopg 3</span>
+        <span class="tech-badge"><span class="dot"></span>HTTPX</span>
+        <span class="tech-badge"><span class="dot"></span>TLSH</span>
+        <span class="tech-badge"><span class="dot"></span>Pillow / ImageHash</span>
+        <span class="tech-badge"><span class="dot"></span>Docker</span>
+        <span class="tech-badge"><span class="dot"></span>GitHub Actions</span>
+        <span class="tech-badge"><span class="dot"></span>Cloudflare R2</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA BANNER ============ -->
+<section class="cta-banner">
+  <div class="blob blob-c" data-speed="0.08"></div>
+  <div class="container reveal">
+    <h2>See it hunting, live.</h2>
+    <p>Outpost is running right now — watching feeds, scoring candidates, filing takedowns.</p>
+    <a class="btn btn-primary btn-lg" href="https://outpost.heapleap.tech">
+      Launch Outpost
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      <span class="glow"></span>
+    </a>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#hero" class="logo" aria-label="heapleap home">
+          <svg class="logo-mark" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="7" r="3" fill="var(--intel)" fill-opacity=".8"/>
+            <circle cx="7" cy="24" r="2.6" fill="var(--intel)" fill-opacity=".45"/>
+            <circle cx="25" cy="24" r="2.6" fill="var(--signal)"/>
+            <line x1="16" y1="9.6" x2="8" y2="22" stroke="var(--intel)" stroke-opacity=".4" stroke-width="1.3"/>
+            <line x1="16" y1="9.6" x2="24" y2="22" stroke="var(--signal)" stroke-width="1.5"/>
+          </svg>
+          <span class="logo-word">heap<span class="dim">leap</span></span>
+        </a>
+        <p>Cyber defense suite, built module by module.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Suite</h5>
+        <ul>
+          <li><a href="#suite">Modules</a></li>
+          <li><a href="#outpost">Outpost</a></li>
+          <li><a href="#ethics">Ethics</a></li>
+          <li><a href="#technology">Technology</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Status</h5>
+        <ul class="status-list">
+          <li><span class="dot on"></span>Outpost — Live</li>
+          <li><span class="dot off"></span>Herald — In development</li>
+          <li><span class="dot off"></span>Atlas — In development</li>
+          <li><span class="dot off"></span>Horizon — In development</li>
+          <li><span class="dot off"></span>Mirage — In development</li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Contact</h5>
+        <ul>
+          <li><a href="mailto:security@heapleap.tech">security@heapleap.tech</a></li>
+          <li><a href="https://github.com/faseehfawaz/outpost">GitHub</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 heapleap. All rights reserved.</span>
+      <span>Built on a passive-research line, by design.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+'use strict';
+
+var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------------------------------------------------------
+   1. Shared scroll handler — progress bar, nav state, parallax, pipeline
+--------------------------------------------------------- */
+var progressBar = document.getElementById('progressBar');
+var nav = document.getElementById('nav');
+var blobs = Array.prototype.slice.call(document.querySelectorAll('.blob'));
+var pipelineStages = document.getElementById('pipelineStages');
+var pipelineProgress = document.getElementById('pipelineProgress');
+var stages = pipelineStages ? Array.prototype.slice.call(pipelineStages.querySelectorAll('.stage')) : [];
+var ticking = false;
+
+function onScroll(){
+  var scrollTop = window.scrollY || document.documentElement.scrollTop;
+  var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  var pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  if (progressBar) progressBar.style.width = pct + '%';
+
+  if (nav) {
+    if (scrollTop > 40) nav.classList.add('is-scrolled');
+    else nav.classList.remove('is-scrolled');
+  }
+
+  if (!reduceMotion) {
+    blobs.forEach(function(b){
+      var speed = parseFloat(b.getAttribute('data-speed')) || 0.1;
+      b.style.transform = 'translateY(' + (scrollTop * speed) + 'px)';
+    });
+  }
+
+  if (pipelineStages && pipelineProgress) {
+    var rect = pipelineStages.getBoundingClientRect();
+    var vh = window.innerHeight;
+    var raw = (vh * 0.75 - rect.top) / (rect.height + vh * 0.35);
+    var progress = Math.max(0, Math.min(1, raw));
+    pipelineProgress.style.width = (progress * 92) + '%';
+    stages.forEach(function(s){
+      var idx = parseInt(s.getAttribute('data-index'), 10);
+      var threshold = idx / stages.length;
+      if (progress > threshold + 0.03) s.classList.add('active');
+      else s.classList.remove('active');
+    });
+  }
+
+  ticking = false;
+}
+
+window.addEventListener('scroll', function(){
+  if (!ticking) {
+    requestAnimationFrame(onScroll);
+    ticking = true;
+  }
+}, { passive: true });
+onScroll();
+
+/* ---------------------------------------------------------
+   2. Nav mobile toggle
+--------------------------------------------------------- */
+var navToggle = document.getElementById('navToggle');
+var navMobile = document.getElementById('navMobile');
+if (navToggle && navMobile) {
+  navToggle.addEventListener('click', function(){
+    var open = navMobile.classList.toggle('is-open');
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    navToggle.classList.toggle('is-open', open);
+  });
+  navMobile.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){
+      navMobile.classList.remove('is-open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+}
+
+/* ---------------------------------------------------------
+   3. Reveal on scroll
+--------------------------------------------------------- */
+var revealEls = document.querySelectorAll('.reveal, .hero-title');
+if ('IntersectionObserver' in window) {
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+  revealEls.forEach(function(el){ io.observe(el); });
+} else {
+  revealEls.forEach(function(el){ el.classList.add('is-visible'); });
+}
+
+/* ---------------------------------------------------------
+   4. Animated counters
+--------------------------------------------------------- */
+function animateCount(el){
+  var target = parseInt(el.getAttribute('data-count'), 10) || 0;
+  var suffix = el.getAttribute('data-suffix') || '';
+  var start = null;
+  var duration = 1700;
+  function step(ts){
+    if (!start) start = ts;
+    var p = Math.min(1, (ts - start) / duration);
+    var eased = 1 - Math.pow(1 - p, 3);
+    var val = Math.floor(eased * target);
+    el.textContent = val.toLocaleString() + (p >= 1 ? suffix : '');
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+var counters = document.querySelectorAll('[data-count]');
+if ('IntersectionObserver' in window) {
+  var cio = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) {
+        animateCount(entry.target);
+        cio.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  counters.forEach(function(el){ cio.observe(el); });
+} else {
+  counters.forEach(function(el){
+    el.textContent = (el.getAttribute('data-count') || '0') + (el.getAttribute('data-suffix') || '');
+  });
+}
+
+/* ---------------------------------------------------------
+   5. Entity graph SVG — draw-in on scroll
+--------------------------------------------------------- */
+var graphPaths = document.querySelectorAll('.graph-path');
+graphPaths.forEach(function(path){
+  try {
+    var len = path.getTotalLength();
+    path.style.strokeDasharray = len;
+    path.style.strokeDashoffset = len;
+  } catch(e) {}
+});
+var graphWrap = document.querySelector('.graph-wrap');
+if (graphWrap && 'IntersectionObserver' in window) {
+  var gio = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) {
+        graphPaths.forEach(function(path, i){
+          setTimeout(function(){ path.style.strokeDashoffset = 0; }, i * 140);
+        });
+        gio.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  gio.observe(graphWrap);
+}
+
+/* ---------------------------------------------------------
+   6. Hero ambient canvas — entity graph field
+--------------------------------------------------------- */
+var canvas = document.getElementById('graph-canvas');
+if (canvas && !reduceMotion) {
+  var ctx = canvas.getContext('2d');
+  var w, h, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var nodes = [];
+  var mouse = { x: 0, y: 0, active: false };
+  var running = true;
+
+  function resize(){
+    var hero = document.getElementById('hero');
+    w = hero.offsetWidth;
+    h = hero.offsetHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    buildNodes();
+  }
+
+  function buildNodes(){
+    nodes = [];
+    var count = Math.max(22, Math.min(46, Math.floor((w * h) / 34000)));
+    for (var i = 0; i < count; i++) {
+      var isHub = i === 0;
+      nodes.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.12,
+        vy: (Math.random() - 0.5) * 0.12,
+        r: isHub ? 3.2 : Math.random() * 1.6 + 0.8,
+        hub: isHub
+      });
+    }
+  }
+
+  function draw(){
+    if (!running) { requestAnimationFrame(draw); return; }
+    ctx.clearRect(0, 0, w, h);
+    var maxDist = Math.min(180, w / 5);
+
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > w) n.vx *= -1;
+      if (n.y < 0 || n.y > h) n.vy *= -1;
+
+      if (mouse.active) {
+        var dx = mouse.x - n.x, dy = mouse.y - n.y;
+        var d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 140) {
+          n.x -= dx * 0.0025;
+          n.y -= dy * 0.0025;
+        }
+      }
+    }
+
+    for (i = 0; i < nodes.length; i++) {
+      for (var j = i + 1; j < nodes.length; j++) {
+        var a = nodes[i], b = nodes[j];
+        var dx2 = a.x - b.x, dy2 = a.y - b.y;
+        var dist = Math.sqrt(dx2*dx2 + dy2*dy2);
+        if (dist < maxDist) {
+          var op = (1 - dist / maxDist) * 0.16;
+          ctx.strokeStyle = 'rgba(94,235,255,' + op + ')';
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = n.hub ? 'rgba(57,255,136,.85)' : 'rgba(94,235,255,.55)';
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize, { passive: true });
+  window.addEventListener('mousemove', function(e){
+    var hero = document.getElementById('hero');
+    var rect = hero.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+    mouse.active = mouse.y > -200 && mouse.y < h + 200;
+  }, { passive: true });
+  document.addEventListener('visibilitychange', function(){
+    running = !document.hidden;
+  });
+  if ('IntersectionObserver' in window) {
+    var heroEl = document.getElementById('hero');
+    var hio = new IntersectionObserver(function(entries){
+      running = entries[0].isIntersecting && !document.hidden;
+    }, { threshold: 0 });
+    hio.observe(heroEl);
+  }
+
+  resize();
+  draw();
+}
+
+/* ---------------------------------------------------------
+   7. Magnetic buttons
+--------------------------------------------------------- */
+if (!reduceMotion) {
+  document.querySelectorAll('.btn').forEach(function(btn){
+    btn.addEventListener('mousemove', function(e){
+      var rect = btn.getBoundingClientRect();
+      var x = e.clientX - rect.left, y = e.clientY - rect.top;
+      btn.style.setProperty('--gx', x + 'px');
+      btn.style.setProperty('--gy', y + 'px');
+      var mx = (x - rect.width/2) * 0.12;
+      var my = (y - rect.height/2) * 0.28;
+      btn.style.transform = 'translate(' + mx + 'px,' + (my - 2) + 'px)';
+    });
+    btn.addEventListener('mouseleave', function(){
+      btn.style.transform = '';
+    });
+  });
+}
+
+/* ---------------------------------------------------------
+   8. Card tilt
+--------------------------------------------------------- */
+if (!reduceMotion) {
+  document.querySelectorAll('.module-card, .ethics-card').forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var rect = card.getBoundingClientRect();
+      var x = e.clientX - rect.left, y = e.clientY - rect.top;
+      var rx = ((y / rect.height) - 0.5) * -6;
+      var ry = ((x / rect.width) - 0.5) * 6;
+      card.style.transform = 'perspective(800px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg) translateY(-2px)';
+      card.style.setProperty('--mx', x + 'px');
+      card.style.setProperty('--my', y + 'px');
+    });
+    card.addEventListener('mouseleave', function(){
+      card.style.transform = '';
+    });
+  });
+}
+
+})();
+</script>
+</body>
+</html>

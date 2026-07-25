@@ -17,9 +17,20 @@ Weighting rationale (strongest first):
 * the page is live (5) — a live phish is more actionable.
 
 A page is flagged ``is_phish`` when its score meets
-``settings.triage_phish_threshold`` (default 50). Concretely, the two dominant
+``settings.triage_phish_threshold`` (default **35** — this docstring previously
+said 50, which had drifted from the config). Concretely, the two dominant
 signals together (off-domain password POST + a login form, 57) clear the
-threshold on their own, as intended.
+threshold on their own, as intended; at 35 a brand match plus a login form (27)
+still does not, but a brand match on a priority UAE brand with a login form (35)
+does.
+
+Deep signals
+------------
+:func:`score` covers the cheap, static signals only. Rendered-page signals —
+screenshot pHash against real brand login pages, observed exfil endpoints, and
+cloaking behaviour — are folded in by :func:`pkintel.triage.deep.deep_score`,
+which takes this result and adds to it. Keeping them separate preserves this
+function's purity and its unit tests.
 """
 
 from __future__ import annotations

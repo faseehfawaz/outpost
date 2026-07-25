@@ -28,7 +28,16 @@ def extract_indicators(text: str, file_path: str) -> list[Indicator]:
                     type=ind_type,
                     value_hash=val_hash,
                     redacted_display=redact(ind_type.value, value),
-                    full_value_encrypted=b"",  # Set by DB layer if needed
+                    # Carry the full value in-process ONLY. The model marks this
+                    # repr=False so it never lands in a log line or traceback.
+                    # pkintel.analyzer.runner encrypts it (pkintel.crypto) before
+                    # it touches the DB, and it is never returned by the API.
+                    #
+                    # Was: full_value_encrypted=b"" — not a field on Indicator, so
+                    # Pydantic silently dropped it and full_value stayed None,
+                    # leaving indicators.full_value_encrypted empty for every kit
+                    # ever analyzed. The abuse-desk evidence path was dead.
+                    full_value=value,
                     confidence=conf,
                     found_in_path=file_path,
                     meta={},

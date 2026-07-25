@@ -1,0 +1,53 @@
+# Certificate Transparency firehose consumer.
+#
+# Separate from the templated outpost@.service units because this is a
+# long-lived push stream rather than a batch loop — it has no --interval and
+# must never be restarted on a timer.
+#
+#   systemctl enable --now outpost-certstream.service
+#   journalctl -fu outpost-certstream
+
+[Unit]
+Description=Outpost Certificate Transparency firehose
+Documentation=https://github.com/faseehfawaz/outpost
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+PartOf=outpost.target
+
+[Service]
+Type=simple
+User=outpost
+Group=outpost
+WorkingDirectory=/opt/heapleap
+EnvironmentFile=/opt/heapleap/.env
+EnvironmentFile=-/opt/heapleap/.env.certstream
+
+ExecStart=/opt/heapleap/venv/bin/pkintel run certstream
+
+# The stream reconnects internally; a process-level restart means something
+# worse went wrong, so back off harder than the pipeline stages do.
+Restart=always
+RestartSec=30
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=outpost-certstream
+
+LimitNOFILE=65536
+MemoryMax=2G
+Nice=0
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/heapleap/.storage
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

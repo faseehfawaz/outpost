@@ -8,6 +8,8 @@ from pkintel.logging import get_logger
 
 log = get_logger(__name__)
 
+_ACTOR = "kithunt"
+
 
 def run_once(worker_id: str = "kithunt-1", limit: int = 10) -> int:
     """
@@ -59,13 +61,18 @@ def run_once(worker_id: str = "kithunt-1", limit: int = 10) -> int:
                 (new_state, attempts, url_id),
             )
 
-            # Record audit
-            audit_meta = {
-                "url_id": url_id,
-                "collected": result.collected,
-                "kit_sha256": getattr(result, "kit_sha256", None),
-            }
-            record_audit("kithunt_complete", audit_meta)
+            # Record audit.
+            # Signature is record_audit(actor, action, target=None, **detail).
+            # This previously passed a dict as `action` (a TEXT column), so
+            # psycopg raised "can't adapt type 'dict'", which record_audit's own
+            # try/except swallowed — EVERY kit-hunt audit row was silently lost.
+            record_audit(
+                _ACTOR,
+                "kithunt_complete",
+                target=str(url_id),
+                collected=result.collected,
+                kit_sha256=getattr(result, "kit_sha256", None),
+            )
 
             processed_count += 1
 
@@ -75,6 +82,6 @@ def run_once(worker_id: str = "kithunt-1", limit: int = 10) -> int:
                 "UPDATE urls SET kithunt_state = 'error', kithunt_at = now() WHERE id = %s",
                 (url_id,),
             )
-            record_audit("kithunt_error", {"url_id": url_id, "error": str(e)})
+            record_audit(_ACTOR, "kithunt_error", target=str(url_id), error=str(e))
 
     return processed_count
