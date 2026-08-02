@@ -1,0 +1,33 @@
+name: Deploy to EliteDesk (Outpost)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to EliteDesk Server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: fazee
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ""
+          script: |
+            echo "Pulling latest changes on EliteDesk..."
+            mkdir -p /tmp/outpost_deploy
+            
+            # Copy changes and update permissions
+            echo root123 | sudo -S bash -c "
+              cd /opt/heapleap && git pull origin main || true
+              chown -R outpost:outpost /opt/heapleap
+              systemctl restart outpost-api outpost@ingest outpost@triage outpost@kithunt outpost@takedown
+            "
+            echo "Deployment completed successfully!"

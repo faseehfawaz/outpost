@@ -1,6 +1,4 @@
-import pytest
-import os
-from src.pkintel.takedown.evidence import build_evidence_package, generate_sha256
+from pkintel.takedown.evidence import build_evidence_package, generate_sha256
 
 def test_build_evidence_package_empty():
     evidence = build_evidence_package(url_id=1)

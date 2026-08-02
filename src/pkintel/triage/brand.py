@@ -92,6 +92,12 @@ def extract_text(html: str | None) -> tuple[str, str]:
     return title, text
 
 
+# Brands with very short names (≤3 chars) that collide with common words.
+# These are only matched in the URL (hostname/path), never in page body/title,
+# to prevent false positives like "artisan du chocolat" or "index-education".
+_SHORT_BRAND_MIN_LEN = 4  # brands shorter than this use URL-only matching
+
+
 def _name_to_pattern(name: str) -> str:
     """Turn a brand display name into a tolerant, word-bounded regex.
 
@@ -115,8 +121,22 @@ def _where(pattern: str, title: str, url: str) -> str:
 
 # Official domains for each brand to prevent false positives on legitimate sites.
 OFFICIAL_DOMAINS: dict[str, list[str]] = {
+    # UAE priority brands
+    "Emirates NBD": ["emiratesnbd.com"],
+    "Emirates Islamic": ["emiratesislamic.ae"],
     "ADCB": ["adcb.com", "adcbcareers.com"],
+    "FAB": ["bankfab.com"],
+    "Mashreq": ["mashreqbank.com"],
+    "RTA": ["rta.ae"],
+    "Etisalat": ["etisalat.ae", "etisalat.com"],
+    "du": ["du.ae"],
+    "Dubai Police": ["dubaipolice.gov.ae"],
+    "ADNOC": ["adnoc.ae"],
     "DEWA": ["dewa.gov.ae"],
+    "Emirates": ["emirates.com"],
+    "Emirates Post": ["emiratespost.ae"],
+    "UAE PASS": ["uaepass.ae"],
+    # Global brands
     "Microsoft": ["microsoft.com", "office.com", "live.com", "outlook.com"],
     "Apple": ["apple.com", "icloud.com"],
     "PayPal": ["paypal.com"],
@@ -150,6 +170,10 @@ def detect_brand(
     Returns ``(brand_or_None, reasons)``. ``priority_brands`` (UAE-first) are
     matched before the generic global set, and the first match wins — so list
     more specific names (``"Emirates NBD"``) before broader ones (``"Emirates"``).
+
+    Short brand names (< 4 chars, e.g. "du", "FAB", "RTA") are only matched
+    against the URL to prevent false positives on legitimate pages that contain
+    those strings as common words (e.g. French "du" in "artisan du chocolat").
     """
     title, text = extract_text(html)
     url_l = (url or "").lower()
@@ -158,10 +182,15 @@ def detect_brand(
 
     for brand in priority_brands or []:
         pattern = _name_to_pattern(brand)
-        if re.search(pattern, haystack, re.IGNORECASE):
+        # Short brand names match URL only to avoid false positives on common
+        # words in page text (e.g. French "du", "fab" as in "fabulous", etc.).
+        is_short = len(brand.strip()) < _SHORT_BRAND_MIN_LEN
+        search_text = url_l if is_short else haystack
+        if re.search(pattern, search_text, re.IGNORECASE):
             if is_official_domain(url, brand):
                 continue
-            reasons.append(f"priority_brand:{brand} in {_where(pattern, title, url_l)}")
+            where = "url" if is_short else _where(pattern, title, url_l)
+            reasons.append(f"priority_brand:{brand} in {where}")
             return brand, reasons
 
     for brand, patterns in GENERIC_BRAND_PATTERNS.items():

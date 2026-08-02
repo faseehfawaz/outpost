@@ -30,6 +30,7 @@ from pkintel.triage.deep import BrandScreenshot, deep_score
 from pkintel.triage.favicon import KNOWN_FAVICON_HASHES, favicon_mmh3
 from pkintel.triage.fetch import fetch_page
 from pkintel.triage.forms import analyze_forms
+from pkintel.triage.llm import evaluate_borderline_url
 from pkintel.triage.phash import logo_phash
 from pkintel.triage.render import RenderResult, render_page
 from pkintel.triage.score import score
@@ -197,20 +198,29 @@ def _process_one(
     result.logo_phash = logo_hash
 
     # --- deep triage gate --------------------------------------------------
-    # Rendering is the expensive step, so it is spent only where it can change
-    # the answer. Below render_min_score a page is almost always a dead 404 from
-    # a bulk feed; above it, the static signals are ambiguous enough that the
-    # post-JS DOM, the screenshot, and the observed network traffic decide it.
     if settings.render_enabled and result.score >= settings.render_min_score:
-        return _process_deep(
+        outcome = _process_deep(
             client,
             page_url,
             result,
             static_had_password=bool(form and form.has_password_field),
             brand_refs=brand_refs or [],
         )
+        result = outcome.result
+    else:
+        outcome = TriageOutcome(result=result, static_score=result.score)
 
-    return TriageOutcome(result=result, static_score=result.score)
+    # --- local LLM tie-breaker gate (Ollama) -------------------------------
+    if settings.llm_enabled and settings.llm_band_low <= result.score <= settings.llm_band_high:
+        llm_res = evaluate_borderline_url(page_url, html, result.score)
+        if llm_res.get("is_phishing") and llm_res.get("confidence", 0.0) >= 0.7:
+            new_score = max(result.score, settings.triage_phish_threshold + 5)
+            result.is_phish = True
+            result.score = new_score
+            result.reasons.append(f"llm_rescue: {llm_res.get('reason', 'LLM verdict')}")
+            log.info("llm_rescued_phish", url=page_url, static_score=outcome.static_score, new_score=new_score, confidence=llm_res.get("confidence"))
+
+    return outcome
 
 
 def run_once(worker_id: str = "triage-1", limit: int = 500, workers: int | None = None) -> int:

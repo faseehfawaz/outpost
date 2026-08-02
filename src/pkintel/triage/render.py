@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import contextlib
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -119,76 +120,116 @@ def playwright_available() -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+#  Thread-local Playwright instances
+# ---------------------------------------------------------------------------
+# Playwright's sync API uses greenlets that are bound to the creating thread.
+# We cannot share a single Browser across the 64 triage worker threads.
+# Instead, each thread in a dedicated render pool lazily creates its own
+# Playwright → Browser pair via thread-local storage.  The pool size
+# (render_browsers) caps how many Chromium processes exist simultaneously.
+# ---------------------------------------------------------------------------
+
+_tls = threading.local()
+
+
+def _get_launch_kwargs() -> dict:
+    """Build Chromium launch kwargs (no thread-local state)."""
+    tmpfs = Path(settings.render_tmpfs_dir)
+    tmpfs.mkdir(parents=True, exist_ok=True)
+    crash_dir = tmpfs / "crashpad"
+    crash_dir.mkdir(parents=True, exist_ok=True)
+
+    launch_kwargs: dict = {
+        "headless": True,
+        "args": [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-background-networking",
+            "--disable-extensions",
+            "--disable-crash-reporter",
+            "--enable-crashpad",
+            f"--crash-dumps-dir={crash_dir}",
+            # Keep cache in RAM, off the SATA SSD.
+            f"--disk-cache-dir={tmpfs / 'cache'}",
+            "--disk-cache-size=134217728",
+        ],
+        "env": {
+            "CHROME_CRASHPAD_PIPE_NAME": "",
+        },
+    }
+    exe = getattr(settings, "render_executable", "")
+    if exe:
+        launch_kwargs["executable_path"] = exe
+    return launch_kwargs
+
+
+def _ensure_thread_browser():
+    """Return a Playwright Browser owned by the current thread, or None."""
+    browser = getattr(_tls, "browser", None)
+    if browser is not None:
+        return browser
+
+    try:
+        from playwright.sync_api import sync_playwright
+
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(**_get_launch_kwargs())
+        _tls.playwright = pw
+        _tls.browser = browser
+        log.info(
+            "render_thread_browser_started",
+            thread=threading.current_thread().name,
+        )
+        return browser
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "render_thread_browser_failed",
+            thread=threading.current_thread().name,
+            error=str(exc),
+        )
+        _tls.browser = None
+        return None
+
+
 class BrowserPool:
-    """Lazily-started Chromium with a bounded number of concurrent contexts.
+    """Fixed-size thread pool where each thread owns its own Playwright browser.
 
-    One browser *process*, N isolated *contexts*. Contexts are cheap (a fresh
-    cookie jar and cache) whereas processes are not, so this gives full isolation
-    between targets at a fraction of the memory of N browsers. A semaphore caps
-    concurrency at ``settings.render_browsers`` so the pool cannot outgrow RAM.
-
-    Thread-safe: the pipeline calls this from :mod:`pkintel.pool` worker threads.
+    Worker threads submit render jobs to this pool.  Because each pool thread
+    lazily creates its own Playwright + Browser, there are no cross-thread
+    greenlet issues.  The pool size (``settings.render_browsers``) limits
+    how many concurrent Chromium processes run.
     """
 
     def __init__(self, size: int | None = None) -> None:
         self.size = size or settings.render_browsers
-        self._sem = threading.Semaphore(self.size)
-        self._lock = threading.Lock()
-        self._playwright = None
-        self._browser = None
-        self._started = False
+        self._executor = ThreadPoolExecutor(
+            max_workers=self.size,
+            thread_name_prefix="render",
+        )
 
-    def _ensure_started(self) -> bool:
-        if self._started:
-            return self._browser is not None
-        with self._lock:
-            if self._started:
-                return self._browser is not None
-            self._started = True
-            try:
-                from playwright.sync_api import sync_playwright
-
-                tmpfs = Path(settings.render_tmpfs_dir)
-                tmpfs.mkdir(parents=True, exist_ok=True)
-
-                self._playwright = sync_playwright().start()
-                launch_kwargs: dict = {
-                    "headless": True,
-                    "args": [
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-gpu",
-                        "--disable-background-networking",
-                        "--disable-extensions",
-                        # Keep every scratch path in RAM, off the SATA SSD.
-                        f"--disk-cache-dir={tmpfs / 'cache'}",
-                        f"--user-data-dir={tmpfs / 'profile'}",
-                        "--disk-cache-size=134217728",
-                    ],
-                }
-                # Arch: prefer the system chromium over Playwright's bundled one.
-                exe = getattr(settings, "render_executable", "")
-                if exe:
-                    launch_kwargs["executable_path"] = exe
-
-                self._browser = self._playwright.chromium.launch(**launch_kwargs)
-                log.info("browser_pool_started", size=self.size, tmpfs=str(tmpfs))
-            except Exception as exc:  # noqa: BLE001 - render is optional, never fatal
-                log.warning("browser_pool_start_failed", error=str(exc))
-                self._browser = None
-        return self._browser is not None
+    def submit_render(self, url: str, *, save_screenshot: bool = True) -> RenderResult:
+        """Submit a render job and block until complete."""
+        future = self._executor.submit(_do_render, url, save_screenshot=save_screenshot)
+        return future.result()
 
     @contextlib.contextmanager
     def context(self):
-        """Yield an isolated browser context, or ``None`` if unavailable."""
-        if not self._ensure_started():
+        """Yield an isolated browser context, or ``None`` if unavailable.
+
+        DEPRECATED — kept for backward compatibility.  Prefer submit_render().
+        The context is created on the *calling* thread, so it only works when
+        the caller is already inside the render pool.
+        """
+        browser = _ensure_thread_browser()
+        if browser is None:
             yield None
             return
-        self._sem.acquire()
         ctx = None
         try:
-            ctx = self._browser.new_context(
-                ignore_https_errors=True,  # phishing sites routinely have bad certs
+            ctx = browser.new_context(
+                ignore_https_errors=True,
                 user_agent=settings.user_agent,
                 viewport={"width": 1366, "height": 900},
                 accept_downloads=False,
@@ -203,19 +244,9 @@ class BrowserPool:
             if ctx is not None:
                 with contextlib.suppress(Exception):
                     ctx.close()
-            self._sem.release()
 
     def close(self) -> None:
-        with self._lock:
-            if self._browser is not None:
-                with contextlib.suppress(Exception):
-                    self._browser.close()
-                self._browser = None
-            if self._playwright is not None:
-                with contextlib.suppress(Exception):
-                    self._playwright.stop()
-                self._playwright = None
-            self._started = False
+        self._executor.shutdown(wait=False)
 
 
 _pool: BrowserPool | None = None
@@ -250,27 +281,30 @@ def _screenshot_phash(png_bytes: bytes) -> str | None:
         return None
 
 
-def render_page(url: str, *, save_screenshot: bool = True) -> RenderResult:
-    """Render ``url`` in a headless context and collect deep signals.
-
-    Read-only: navigates, waits for the network to settle, then observes. It
-    never interacts with the page and never submits anything.
-    """
+def _do_render(url: str, *, save_screenshot: bool = True) -> RenderResult:
+    """Execute the full render on a pool thread that owns a Playwright browser."""
     from pkintel.http import throttle_host
 
     result = RenderResult()
-    if not settings.render_enabled:
-        result.error = "render_disabled"
+    origin_host = urlsplit(url).netloc.lower()
+    throttle_host(origin_host)
+
+    browser = _ensure_thread_browser()
+    if browser is None:
+        result.error = "browser_unavailable"
         return result
 
-    origin_host = urlsplit(url).netloc.lower()
-    throttle_host(origin_host)  # same politeness contract as polite_get
-
-    pool = get_pool()
-    with pool.context() as ctx:
-        if ctx is None:
-            result.error = "browser_unavailable"
-            return result
+    ctx = None
+    page = None
+    try:
+        ctx = browser.new_context(
+            ignore_https_errors=True,
+            user_agent=settings.user_agent,
+            viewport={"width": 1366, "height": 900},
+            accept_downloads=False,
+            java_script_enabled=True,
+        )
+        ctx.set_default_timeout(settings.render_timeout_s * 1000)
 
         network_hosts: set[str] = set()
         exfil: list[str] = []
@@ -280,14 +314,12 @@ def render_page(url: str, *, save_screenshot: bool = True) -> RenderResult:
                 host = urlsplit(request.url).netloc.lower()
                 if host and host != origin_host:
                     network_hosts.add(host)
-                # A POST to a different origin, on a page with a password field,
-                # is the classic credential-exfil shape.
                 lowered = request.url.lower()
                 if request.method == "POST" and host and host != origin_host:
                     exfil.append(f"{request.method} {request.url}")
                 elif any(hint in lowered for hint in _EXFIL_HINTS):
                     exfil.append(f"{request.method} {request.url}")
-            except Exception:  # noqa: BLE001, S110 - telemetry must never break the render
+            except Exception:  # noqa: BLE001, S110
                 pass
 
         def _on_route(route) -> None:
@@ -300,58 +332,73 @@ def render_page(url: str, *, save_screenshot: bool = True) -> RenderResult:
                 with contextlib.suppress(Exception):
                     route.continue_()
 
-        page = None
-        try:
-            page = ctx.new_page()
-            # A hostile page can throw alert()/confirm() loops to hang a worker.
-            page.on("dialog", lambda d: d.dismiss())
-            page.on("request", _on_request)
-            page.route("**/*", _on_route)
+        page = ctx.new_page()
+        page.on("dialog", lambda d: d.dismiss())
+        page.on("request", _on_request)
+        page.route("**/*", _on_route)
 
-            response = page.goto(url, wait_until="domcontentloaded")
-            result.status = response.status if response else None
+        response = page.goto(url, wait_until="domcontentloaded")
+        result.status = response.status if response else None
 
-            # Let deferred JS build the DOM. networkidle is the point at which a
-            # SPA has finished rendering; timeout is not an error, just a busy page.
+        with contextlib.suppress(Exception):
+            page.wait_for_load_state("networkidle", timeout=8000)
+
+        result.final_url = page.url
+        result.title = (page.title() or "")[:300]
+        result.html = page.content()
+
+        result.has_password_field = bool(
+            page.query_selector("input[type=password]")
+        )
+        result.input_count = len(page.query_selector_all("input"))
+
+        if save_screenshot:
+            png = page.screenshot(full_page=False, type="png")
+            result.screenshot_phash = _screenshot_phash(png)
+            shot_dir = Path(settings.render_screenshot_dir)
+            try:
+                shot_dir.mkdir(parents=True, exist_ok=True)
+                from pkintel.redact import sha256_hex
+
+                name = f"{sha256_hex(url)[:32]}.png"
+                dest = shot_dir / name
+                dest.write_bytes(png)
+                result.screenshot_path = str(dest)
+            except Exception as exc:  # noqa: BLE001 - hash is what matters
+                log.debug("screenshot_save_failed", error=str(exc))
+
+        result.network_hosts = sorted(network_hosts)
+        result.exfil_endpoints = list(dict.fromkeys(exfil))[:20]
+        result.ok = True
+
+    except Exception as exc:  # noqa: BLE001 - a dead/hostile page is a normal outcome
+        result.error = str(exc)[:500]
+        log.debug("render_failed", url=url, error=result.error)
+    finally:
+        if page is not None:
             with contextlib.suppress(Exception):
-                page.wait_for_load_state("networkidle", timeout=8000)
-
-            result.final_url = page.url
-            result.title = (page.title() or "")[:300]
-            result.html = page.content()
-
-            # Post-JS form shape — the whole point of rendering.
-            result.has_password_field = bool(
-                page.query_selector("input[type=password]")
-            )
-            result.input_count = len(page.query_selector_all("input"))
-
-            if save_screenshot:
-                png = page.screenshot(full_page=False, type="png")
-                result.screenshot_phash = _screenshot_phash(png)
-                shot_dir = Path(settings.render_screenshot_dir)
-                try:
-                    shot_dir.mkdir(parents=True, exist_ok=True)
-                    from pkintel.redact import sha256_hex
-
-                    name = f"{sha256_hex(url)[:32]}.png"
-                    dest = shot_dir / name
-                    dest.write_bytes(png)
-                    result.screenshot_path = str(dest)
-                except Exception as exc:  # noqa: BLE001 - hash is what matters
-                    log.debug("screenshot_save_failed", error=str(exc))
-
-            result.network_hosts = sorted(network_hosts)
-            # Preserve order, drop duplicates.
-            result.exfil_endpoints = list(dict.fromkeys(exfil))[:20]
-            result.ok = True
-
-        except Exception as exc:  # noqa: BLE001 - a dead/hostile page is a normal outcome
-            result.error = str(exc)[:500]
-            log.debug("render_failed", url=url, error=result.error)
-        finally:
-            if page is not None:
-                with contextlib.suppress(Exception):
-                    page.close()
+                page.close()
+        if ctx is not None:
+            with contextlib.suppress(Exception):
+                ctx.close()
 
     return result
+
+
+def render_page(url: str, *, save_screenshot: bool = True) -> RenderResult:
+    """Render ``url`` in a headless context and collect deep signals.
+
+    Read-only: navigates, waits for the network to settle, then observes. It
+    never interacts with the page and never submits anything.
+
+    The actual work runs on a dedicated render-pool thread that owns its own
+    Playwright browser, avoiding the greenlet thread-affinity crash.
+    """
+    result = RenderResult()
+    if not settings.render_enabled:
+        result.error = "render_disabled"
+        return result
+
+    pool = get_pool()
+    return pool.submit_render(url, save_screenshot=save_screenshot)
+

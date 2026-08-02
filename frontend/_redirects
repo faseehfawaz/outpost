@@ -1,1 +1,4 @@
 /api/*  https://api-outpost.heapleap.tech/api/:splat  200
+/docs  https://api-outpost.heapleap.tech/docs  200
+/redoc  https://api-outpost.heapleap.tech/redoc  200
+/openapi.json  https://api-outpost.heapleap.tech/openapi.json  200

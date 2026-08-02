@@ -261,6 +261,9 @@ class Settings(BaseSettings):
     takedown_override_recipient: str = Field(
         default="", description="Redirect all outbound takedowns to this email for testing."
     )
+    takedown_bcc_email: str = Field(
+        default="info@heapleap.tech", description="BCC email address for copies of all sent takedown notices."
+    )
     smtp_host: str = Field(default="", description="SMTP server host, e.g. smtp.gmail.com")
     smtp_port: int = Field(default=587, description="SMTP server port (587 for TLS, 465 for SSL)")
     smtp_user: str = Field(default="", description="SMTP login username")

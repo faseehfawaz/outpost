@@ -1,272 +1,581 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outpost — Threat Intelligence Command Center</title>
-    <meta name="description" content="Real-time phishing kit detection, actor fingerprinting, and threat intelligence platform.">
-    <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outpost — Threat Intelligence &amp; Automated Takedown</title>
+<meta name="description" content="Outpost is the live module of the heapleap cyber defense suite: real-time phishing kit detection, actor fingerprinting and automated takedown filing.">
+<link rel="canonical" href="https://outpost.heapleap.tech/">
+<meta name="robots" content="index, follow">
+
+<!-- OpenGraph / Social Cards -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Heapleap">
+<meta property="og:url" content="https://outpost.heapleap.tech/">
+<meta property="og:title" content="Outpost — Threat Intelligence &amp; Automated Takedown">
+<meta property="og:description" content="Outpost is the live threat intelligence module of the Heapleap cyber defense suite: real-time phishing kit detection, actor fingerprinting and automated takedown filing.">
+<meta property="og:image" content="https://outpost.heapleap.tech/assets/og-preview.png">
+
+<!-- Twitter Cards -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Outpost — Threat Intelligence &amp; Automated Takedown">
+<meta name="twitter:description" content="Real-time phishing kit hunting, threat intelligence scoring, and automated takedown filing by Heapleap.">
+
+<!-- Schema.org JSON-LD Structured Data for Knowledge Graph -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://heapleap.tech/#organization",
+      "name": "Heapleap",
+      "url": "https://heapleap.tech",
+      "description": "Heapleap is a cybersecurity organization specializing in threat intelligence, phishing kit detection, and automated takedown filing.",
+      "sameAs": [
+        "https://www.wikidata.org/wiki/Q140720897",
+        "https://github.com/faseehfawaz/outpost",
+        "https://heapleap.tech"
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://outpost.heapleap.tech/#software",
+      "name": "Outpost Threat Intelligence Pipeline",
+      "url": "https://outpost.heapleap.tech",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Linux, Cloud",
+      "description": "Automated threat intelligence pipeline for real-time phishing kit hunting, actor fingerprinting, and automated registrar/host takedown dispatch.",
+      "author": {
+        "@id": "https://heapleap.tech/#organization"
+      }
+    }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=4.0">
 </head>
 <body>
 
-<!-- Particle Background Canvas -->
 <canvas id="bg-canvas"></canvas>
+<div class="noise"></div>
 <div class="scanlines"></div>
 <div class="vignette"></div>
+<div class="progress-bar" id="progressBar"></div>
+<div class="scene-tooltip" id="sceneTooltip" aria-hidden="true"></div>
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="detail-drawer" id="detailDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="drawer-kind" id="drawerKind">—</span>
+    <button class="drawer-close" id="drawerClose" aria-label="Close detail panel">&times;</button>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <p class="drawer-empty">Click any node in a 3D view for its detail.</p>
+  </div>
+</aside>
 
 <!-- ═══════════════════════════════════ NAV ═══════════════════════════════════ -->
-<nav class="nav">
+<header class="nav" id="nav">
+  <div class="container nav-inner">
     <div class="nav-left">
-        <a href="index.html" class="logo-wrap">
-            <div class="logo-icon">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <polygon points="16,2 30,24 2,24" stroke="#00f5d4" stroke-width="1.5" fill="rgba(0,245,212,0.05)"/>
-                    <polygon points="16,8 25,22 7,22" stroke="#00f5d4" stroke-width="0.75" fill="rgba(0,245,212,0.08)" opacity="0.5"/>
-                    <circle cx="16" cy="16" r="2.5" fill="#00f5d4" style="filter:drop-shadow(0 0 6px #00f5d4)"/>
-                </svg>
-            </div>
-            <div class="logo-text">
-                <span class="logo-name">Outpost</span>
-                <span class="logo-sub">Threat Intelligence Platform</span>
-            </div>
-        </a>
+      <a href="index.html" class="logo-wrap" aria-label="Outpost home">
+        <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+          <circle class="ring" cx="16" cy="16" r="11" fill="rgba(57,255,136,.07)" stroke="var(--signal)" stroke-width="1.3"/>
+          <line x1="16" y1="16" x2="16" y2="4.5" stroke="var(--intel)" stroke-opacity=".45" stroke-width="1.2"/>
+          <line x1="16" y1="16" x2="6" y2="23" stroke="var(--intel)" stroke-opacity=".45" stroke-width="1.2"/>
+          <line x1="16" y1="16" x2="26" y2="23" stroke="var(--intel)" stroke-opacity=".45" stroke-width="1.2"/>
+          <circle cx="16" cy="4.5" r="2" fill="var(--intel)" fill-opacity=".8"/>
+          <circle cx="6" cy="23" r="2" fill="var(--intel)" fill-opacity=".8"/>
+          <circle cx="26" cy="23" r="2" fill="var(--intel)" fill-opacity=".8"/>
+          <circle class="dot" cx="16" cy="16" r="5" fill="var(--signal)"/>
+        </svg>
+        <div class="logo-text">
+          <span class="logo-name">OUTPOST</span>
+          <span class="logo-sub">part of heapleap ⌁ suite</span>
+        </div>
+      </a>
 
-        <ul class="nav-links">
-            <li><a href="index.html" class="active">⬡ Dashboard</a></li>
-            <li><a href="actors.html">⬡ Actors</a></li>
-            <li><a href="ioc.html">⬡ IOC Feed</a></li>
-        </ul>
+      <ul class="nav-links">
+        <li><a href="index.html" class="active">Dashboard</a></li>
+        <li><a href="actors.html">Actors</a></li>
+        <li><a href="ioc.html">IOC Feed</a></li>
+      </ul>
     </div>
 
     <div class="nav-right">
-        <div class="nav-threat">
-            <span class="threat-label">Threat Level</span>
-            <span class="threat-level" id="threat-level">ELEVATED</span>
-        </div>
-        <div class="nav-clock">
-            <div class="clock-time" id="nav-clock">00:00:00</div>
-            <div class="clock-date" id="nav-date">--</div>
-        </div>
-        <div class="nav-status">
-            <span class="status-dot"></span>
-            <span>System Online</span>
-        </div>
+      <a class="suite-link" href="https://heapleap.tech" target="_blank" rel="noopener noreferrer">
+        heapleap.tech
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </a>
+      <div class="nav-threat">
+        <span class="threat-label">Threat</span>
+        <span class="threat-level" id="threat-level">—</span>
+      </div>
+      <div class="nav-clock">
+        <div class="clock-time" id="nav-clock">00:00:00</div>
+        <div class="clock-date" id="nav-date">--</div>
+      </div>
+      <div class="nav-status">
+        <span class="status-dot"></span>
+        <span>Online</span>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
     </div>
-</nav>
+  </div>
+</header>
+
+<div class="nav-mobile" id="navMobile">
+  <ul>
+    <li><a href="index.html" class="active">Dashboard</a></li>
+    <li><a href="actors.html">Actors</a></li>
+    <li><a href="ioc.html">IOC Feed</a></li>
+    <li><a href="https://heapleap.tech" target="_blank" rel="noopener noreferrer">heapleap.tech ↗</a></li>
+  </ul>
+</div>
 
 <!-- ═══════════════════════════════ TICKER BAR ════════════════════════════════ -->
-<div class="ticker-bar">
-    <div class="ticker-label">⬡ Live Intel</div>
-    <div class="ticker-track">
-        <div class="ticker-content" id="ticker">
-            <span>●</span> PIPELINE ACTIVE — TRIAGING URLS IN REAL TIME &nbsp;&nbsp;&nbsp;
-            <span>●</span> PHISHING DETECTION ENGINE RUNNING &nbsp;&nbsp;&nbsp;
-            <span>●</span> URLHAUS FEED INGESTED &nbsp;&nbsp;&nbsp;
-            <span>●</span> OPENPHISH FEED ACTIVE &nbsp;&nbsp;&nbsp;
-            <span>●</span> TRIAGE CYCLE COMPLETE — RESULTS UPDATED &nbsp;&nbsp;&nbsp;
-            <span>●</span> DATABASE CONNECTED — NEON POSTGRESQL &nbsp;&nbsp;&nbsp;
-            <span>●</span> PASSIVE RESEARCH MODE — NO KITS EXECUTED &nbsp;&nbsp;&nbsp;
-            <span>●</span> PIPELINE ACTIVE — TRIAGING URLS IN REAL TIME &nbsp;&nbsp;&nbsp;
-            <span>●</span> PHISHING DETECTION ENGINE RUNNING &nbsp;&nbsp;&nbsp;
-            <span>●</span> URLHAUS FEED INGESTED &nbsp;&nbsp;&nbsp;
-            <span>●</span> OPENPHISH FEED ACTIVE &nbsp;&nbsp;&nbsp;
-        </div>
+<div class="ticker-bar" aria-hidden="true">
+  <div class="ticker-label"><span class="live-dot-sm"></span>Live Intel</div>
+  <div class="ticker-track">
+    <div class="ticker-content">
+      <div class="ticker-set">
+        <span class="ticker-item live"><span class="live-dot-sm"></span>PIPELINE ACTIVE</span>
+        <span class="ticker-item"><b class="tk-total">—</b>&nbsp;URLs ingested</span>
+        <span class="ticker-item"><b class="tk-phish">—</b>&nbsp;confirmed phish active</span>
+        <span class="ticker-item"><b class="tk-takedowns">—</b>&nbsp;takedowns filed</span>
+        <span class="ticker-item"><b class="tk-actors">—</b>&nbsp;actors fingerprinted</span>
+        <span class="ticker-item">passive research only — no kits executed</span>
+        <span class="ticker-item">database — Neon PostgreSQL</span>
+      </div>
+      <div class="ticker-set">
+        <span class="ticker-item live"><span class="live-dot-sm"></span>PIPELINE ACTIVE</span>
+        <span class="ticker-item"><b class="tk-total">—</b>&nbsp;URLs ingested</span>
+        <span class="ticker-item"><b class="tk-phish">—</b>&nbsp;confirmed phish active</span>
+        <span class="ticker-item"><b class="tk-takedowns">—</b>&nbsp;takedowns filed</span>
+        <span class="ticker-item"><b class="tk-actors">—</b>&nbsp;actors fingerprinted</span>
+        <span class="ticker-item">passive research only — no kits executed</span>
+        <span class="ticker-item">database — Neon PostgreSQL</span>
+      </div>
     </div>
+  </div>
 </div>
+
+<!-- ═══════════════════════════════ MASTHEAD ══════════════════════════════════ -->
+<section class="masthead">
+  <div class="container masthead-inner">
+    <div class="masthead-top">
+      <div class="reveal">
+        <p class="eyebrow signal">Outpost // Threat Intelligence &amp; Automated Takedown</p>
+        <h1 class="masthead-title">Every phishing kit leaves<br>a fingerprint. <span class="accent">This reads it.</span></h1>
+        <p class="masthead-sub">
+          Outpost ingests public threat feeds and a live Certificate Transparency stream, scores every
+          candidate against a <strong>UAE-first brand model</strong>, pulls down kits attackers leave
+          exposed, clusters them by code similarity, and automatically notifies the registrars and hosts
+          responsible — a full cycle, around the clock.
+        </p>
+      </div>
+      <div class="masthead-meta reveal reveal-delay-2">
+        <span class="meta-pill"><span class="status-dot"></span>Pipeline live</span>
+        <span class="meta-pill">Last sync <b id="last-sync">—</b></span>
+        <a class="meta-pill" href="#architecture">How it works ↓</a>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- ═══════════════════════════════ MAIN BODY ═════════════════════════════════ -->
 <main class="main">
 
-    <!-- STAT CARDS -->
-    <div class="stats-grid fade-in" id="stats-row">
-        <div class="stat-card">
-            <span class="stat-corner">SYS-01</span>
-            <div class="stat-icon">📡</div>
-            <div class="stat-label">URLs Ingested</div>
-            <div class="stat-value" id="stat-total">—</div>
-            <div class="stat-spark"><canvas id="spark-total" height="32"></canvas></div>
-            <div class="stat-sub">total processed</div>
-        </div>
-        <div class="stat-card s-threat">
-            <span class="stat-corner">SYS-02</span>
-            <div class="stat-icon">🎯</div>
-            <div class="stat-label">Active Phish</div>
-            <div class="stat-value" id="stat-phish">—</div>
-            <div class="stat-spark"><canvas id="spark-phish" height="32"></canvas></div>
-            <div class="stat-sub">live &amp; confirmed</div>
-        </div>
-        <div class="stat-card">
-            <span class="stat-corner">SYS-03</span>
-            <div class="stat-icon">📦</div>
-            <div class="stat-label">Kits Collected</div>
-            <div class="stat-value" id="stat-kits">—</div>
-            <div class="stat-spark"><canvas id="spark-kits" height="32"></canvas></div>
-            <div class="stat-sub">archived kits</div>
-        </div>
-        <div class="stat-card s-accent">
-            <span class="stat-corner">SYS-04</span>
-            <div class="stat-icon">👤</div>
-            <div class="stat-label">Actors Tracked</div>
-            <div class="stat-value" id="stat-actors">—</div>
-            <div class="stat-spark"><canvas id="spark-actors" height="32"></canvas></div>
-            <div class="stat-sub">fingerprinted</div>
-        </div>
-        <div class="stat-card s-warn">
-            <span class="stat-corner">SYS-05</span>
-            <div class="stat-icon">🚨</div>
-            <div class="stat-label">Takedowns Filed</div>
-            <div class="stat-value" id="stat-takedowns">—</div>
-            <div class="stat-spark"><canvas id="spark-takedowns" height="32"></canvas></div>
-            <div class="stat-sub">abuse reports sent</div>
-        </div>
+  <!-- HUD TELEMETRY STRIP -->
+  <div class="hud-stats" id="stats-row">
+    <div class="hud-stat reveal">
+      <span class="hs-tag">SYS·01</span>
+      <span class="hs-label">URLs Ingested</span>
+      <span class="hs-value skeleton" id="stat-total">—</span>
+      <div class="hs-spark"><canvas id="spark-total" height="32"></canvas></div>
     </div>
 
-    <!-- MAIN GRID: Feed Table + Activity -->
-    <div class="dashboard-grid fade-in-2">
-
-        <!-- LEFT: Live Feed -->
-        <div class="panel">
-            <div class="panel-head">
-                <div class="panel-title">
-                    <span class="live-dot"></span>
-                    Live Phishing Feed
-                </div>
-                <div style="display:flex;align-items:center;gap:0.75rem">
-                    <span class="panel-badge badge-live">Monitoring</span>
-                    <span class="panel-meta" id="refresh-timer">next refresh 30s</span>
-                </div>
-            </div>
-            <div class="panel-body">
-                <table class="feed-table">
-                    <thead>
-                        <tr>
-                            <th>URL</th>
-                            <th>Brand</th>
-                            <th>Score</th>
-                            <th>First Seen</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="live-feed-body"></tbody>
-                </table>
-                <div class="empty-state" id="live-empty" style="display:none;">
-                    <div class="empty-icon">⏳</div>
-                    <p>No confirmed live phishing sites yet</p>
-                    <p class="empty-hint">pipeline is triaging URLs — results appear here automatically</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- RIGHT: Activity -->
-        <div class="panel">
-            <div class="panel-head">
-                <div class="panel-title">Recent Activity</div>
-                <span class="panel-badge badge-ok">Live</span>
-            </div>
-            <div class="panel-body">
-                <div class="activity-feed" id="recent-timeline"></div>
-                <div class="empty-state" id="recent-empty" style="display:none;">
-                    <div class="empty-icon">⏳</div>
-                    <p>Awaiting triage results</p>
-                </div>
-            </div>
-        </div>
-
+    <div class="hud-stat hs-threat reveal reveal-delay-1">
+      <span class="hs-tag">SYS·02</span>
+      <span class="hs-label">Active Phish</span>
+      <span class="hs-value skeleton" id="stat-phish">—</span>
+      <div class="hs-spark"><canvas id="spark-phish" height="32"></canvas></div>
     </div>
 
-    <!-- TAKEDOWNS AUDIT LOG ROW -->
-    <div class="panel fade-in-2" style="margin-bottom: 1.5rem;">
-        <div class="panel-head">
-            <div class="panel-title">
-                <span class="live-dot" style="background:var(--orange);box-shadow:0 0 8px var(--orange)"></span>
-                Takedown Dispatch Log (Abuse Reports Audit Trail)
-            </div>
-            <span class="panel-badge badge-warn" id="takedown-badge">Dispatched Notices</span>
-        </div>
-        <div class="panel-body">
-            <table class="feed-table">
-                <thead>
-                    <tr>
-                        <th>Recipient / Abuse Desk</th>
-                        <th>Target Type</th>
-                        <th>Notice Subject</th>
-                        <th>Target URL</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="takedown-log-body"></tbody>
-            </table>
-            <div class="empty-state" id="takedown-empty" style="display:none;">
-                <div class="empty-icon">🚨</div>
-                <p>No takedown dispatches recorded yet</p>
-            </div>
-        </div>
+    <div class="hud-stat reveal reveal-delay-2">
+      <span class="hs-tag">SYS·03</span>
+      <span class="hs-label">Kits Collected</span>
+      <span class="hs-value skeleton" id="stat-kits">—</span>
+      <div class="hs-spark"><canvas id="spark-kits" height="32"></canvas></div>
     </div>
 
-    <!-- CHARTS ROW -->
-    <div class="charts-row fade-in-3">
-
-        <!-- Radar Threat Chart -->
-        <div class="chart-panel">
-            <div class="chart-head">
-                <div class="chart-title">⬡ Threat Radar</div>
-                <div class="chart-stat" id="radar-peak">—</div>
-            </div>
-            <div class="chart-body">
-                <canvas id="radar-canvas"></canvas>
-            </div>
-        </div>
-
-        <!-- Triage Volume -->
-        <div class="chart-panel">
-            <div class="chart-head">
-                <div class="chart-title">⬡ Triage Volume</div>
-                <div class="chart-stat" id="triage-label">Last 12 cycles</div>
-            </div>
-            <div class="chart-body" style="padding:0.75rem 1rem 1rem;">
-                <canvas id="triage-canvas" style="height:160px;"></canvas>
-            </div>
-        </div>
-
-        <!-- Brand Targeting -->
-        <div class="chart-panel">
-            <div class="chart-head">
-                <div class="chart-title">⬡ Brand Targeting</div>
-                <div class="chart-stat">Active Phish</div>
-            </div>
-            <div class="chart-body" style="align-items:flex-start;">
-                <div class="brand-meter" id="brand-meter">
-                    <div class="bm-item">
-                        <span class="bm-name" style="color:var(--t-muted)">loading...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+    <div class="hud-stat hs-accent reveal reveal-delay-3">
+      <span class="hs-tag">SYS·04</span>
+      <span class="hs-label">Actors Tracked</span>
+      <span class="hs-value skeleton" id="stat-actors">—</span>
+      <div class="hs-spark"><canvas id="spark-actors" height="32"></canvas></div>
     </div>
+
+    <div class="hud-stat hs-warn reveal reveal-delay-4">
+      <span class="hs-tag">SYS·05</span>
+      <span class="hs-label">Takedowns Filed</span>
+      <span class="hs-value skeleton" id="stat-takedowns">—</span>
+      <div class="hs-spark"><canvas id="spark-takedowns" height="32"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ ARCHITECTURE / PIPELINE ═══════════════════════ -->
+  <section class="architecture" id="architecture">
+    <div class="sec-header reveal">
+      <div class="sec-heading">
+        <p class="eyebrow">How It Works</p>
+        <h2 class="section-title">One queue. Six stages. No human in the loop.</h2>
+        <p class="section-lead">Every candidate URL moves through the same state machine — coordinated by a single PostgreSQL table with <code>SELECT FOR UPDATE SKIP LOCKED</code>, no message broker required. This is the actual pipeline topology, not a mockup.</p>
+      </div>
+    </div>
+
+    <div class="pipeline-wrap reveal reveal-delay-1">
+      <div class="pipeline-caption">
+        <span>Public feeds → ingest → triage → kit hunter → sandbox → cluster → takedown</span>
+        <span class="cycle-tag"><span class="live-dot-sm"></span>cycle running</span>
+      </div>
+
+      <svg class="flow-svg" viewBox="0 0 1180 276" xmlns="http://www.w3.org/2000/svg">
+        <!-- feed-in paths -->
+        <path id="feed-path-0" class="flow-path feed" d="M90,42 Q125,138 150,138"/>
+        <path id="feed-path-1" class="flow-path feed" d="M90,90 Q125,138 150,138"/>
+        <path id="feed-path-2" class="flow-path feed" d="M90,138 Q125,138 150,138"/>
+        <path id="feed-path-3" class="flow-path feed" d="M90,186 Q125,138 150,138"/>
+        <path id="feed-path-4" class="flow-path feed" d="M90,234 Q125,138 150,138"/>
+
+        <!-- fan-out paths -->
+        <path id="out-path-0" class="flow-path out" d="M990,138 Q1025,138 1060,80"/>
+        <path id="out-path-1" class="flow-path out" d="M990,138 Q1025,138 1060,138"/>
+        <path id="out-path-2" class="flow-path out" d="M990,138 Q1025,138 1060,196"/>
+
+        <!-- main spine -->
+        <path class="flow-path spine" d="M150,138 L318,138 L486,138 L654,138 L822,138 L990,138"/>
+        <path id="flow-spine-progress" class="flow-path spine spine-progress" d="M150,138 L318,138 L486,138 L654,138 L822,138 L990,138"/>
+
+        <!-- traveling pulses on feed / out lines -->
+        <circle class="pulse-dot" r="2.6" fill="var(--intel)" opacity=".85"><animateMotion dur="4.5s" begin="0s" repeatCount="indefinite"><mpath href="#feed-path-0"/></animateMotion></circle>
+        <circle class="pulse-dot" r="2.6" fill="var(--intel)" opacity=".85"><animateMotion dur="5.2s" begin="1s" repeatCount="indefinite"><mpath href="#feed-path-1"/></animateMotion></circle>
+        <circle class="pulse-dot" r="2.6" fill="var(--intel)" opacity=".85"><animateMotion dur="4.8s" begin="2s" repeatCount="indefinite"><mpath href="#feed-path-2"/></animateMotion></circle>
+        <circle class="pulse-dot" r="2.6" fill="var(--intel)" opacity=".85"><animateMotion dur="5.6s" begin="0.6s" repeatCount="indefinite"><mpath href="#feed-path-3"/></animateMotion></circle>
+        <circle class="pulse-dot" r="2.6" fill="var(--intel)" opacity=".85"><animateMotion dur="5s" begin="1.6s" repeatCount="indefinite"><mpath href="#feed-path-4"/></animateMotion></circle>
+
+        <circle class="pulse-dot" r="2.6" fill="var(--amber)" opacity=".9"><animateMotion dur="3.6s" begin="0.4s" repeatCount="indefinite"><mpath href="#out-path-0"/></animateMotion></circle>
+        <circle class="pulse-dot" r="2.6" fill="var(--amber)" opacity=".9"><animateMotion dur="4s" begin="1.4s" repeatCount="indefinite"><mpath href="#out-path-1"/></animateMotion></circle>
+        <circle class="pulse-dot" r="2.6" fill="var(--amber)" opacity=".9"><animateMotion dur="3.8s" begin="2.2s" repeatCount="indefinite"><mpath href="#out-path-2"/></animateMotion></circle>
+
+        <!-- feed endpoints -->
+        <g class="flow-endpoint"><circle cx="90" cy="42" r="6"/><text x="76" y="45" text-anchor="end">URLhaus</text></g>
+        <g class="flow-endpoint"><circle cx="90" cy="90" r="6"/><text x="76" y="93" text-anchor="end">OpenPhish</text></g>
+        <g class="flow-endpoint"><circle cx="90" cy="138" r="6"/><text x="76" y="141" text-anchor="end">CT Logs</text></g>
+        <g class="flow-endpoint"><circle cx="90" cy="186" r="6"/><text x="76" y="189" text-anchor="end">urlscan.io</text></g>
+        <g class="flow-endpoint"><circle cx="90" cy="234" r="6"/><text x="76" y="237" text-anchor="end">GitHub</text></g>
+
+        <!-- output endpoints -->
+        <g class="flow-endpoint"><circle cx="1060" cy="80" r="6"/><text x="1074" y="83" text-anchor="start">Registrar / Host</text></g>
+        <g class="flow-endpoint"><circle cx="1060" cy="138" r="6"/><text x="1074" y="141" text-anchor="start">Abuse Channels</text></g>
+        <g class="flow-endpoint"><circle cx="1060" cy="196" r="6"/><text x="1074" y="199" text-anchor="start">Public IOC Feed</text></g>
+
+        <!-- main stage nodes -->
+        <g class="flow-node" data-stage="0" transform="translate(150,138)">
+          <circle class="core" r="21"/><circle class="dot" r="6"/>
+          <text class="flow-tag" x="0" y="-32" text-anchor="middle">01</text>
+          <text class="flow-label" x="0" y="42" text-anchor="middle">Ingest</text>
+        </g>
+        <g class="flow-node" data-stage="1" transform="translate(318,138)">
+          <circle class="core" r="21"/><circle class="dot" r="6"/>
+          <text class="flow-tag" x="0" y="-32" text-anchor="middle">02</text>
+          <text class="flow-label" x="0" y="42" text-anchor="middle">Triage</text>
+        </g>
+        <g class="flow-node" data-stage="2" transform="translate(486,138)">
+          <circle class="core" r="21"/><circle class="dot" r="6"/>
+          <text class="flow-tag" x="0" y="-32" text-anchor="middle">03</text>
+          <text class="flow-label" x="0" y="42" text-anchor="middle">Kit Hunter</text>
+        </g>
+        <g class="flow-node" data-stage="3" transform="translate(654,138)">
+          <circle class="core" r="21"/><circle class="dot" r="6"/>
+          <text class="flow-tag" x="0" y="-32" text-anchor="middle">04</text>
+          <text class="flow-label" x="0" y="42" text-anchor="middle">Sandbox</text>
+        </g>
+        <g class="flow-node" data-stage="4" transform="translate(822,138)">
+          <circle class="core" r="21"/><circle class="dot" r="6"/>
+          <text class="flow-tag" x="0" y="-32" text-anchor="middle">05</text>
+          <text class="flow-label" x="0" y="42" text-anchor="middle">Cluster</text>
+        </g>
+        <g class="flow-node" data-stage="5" transform="translate(990,138)">
+          <circle class="core" r="21"/><circle class="dot" r="6"/>
+          <text class="flow-tag" x="0" y="-32" text-anchor="middle">06</text>
+          <text class="flow-label" x="0" y="42" text-anchor="middle">Takedown</text>
+        </g>
+      </svg>
+
+      <div class="pipeline-stages">
+        <div class="stage" data-stage="0">
+          <div class="stage-num">01</div><h4>Ingestion</h4>
+          <p>Public feeds plus a live Certificate Transparency stream, merged into one queue.</p>
+        </div>
+        <div class="stage" data-stage="1">
+          <div class="stage-num">02</div><h4>Triage</h4>
+          <p>Favicon and logo hashing, DOM signals and hostname patterns score every candidate 0–100.</p>
+        </div>
+        <div class="stage" data-stage="2">
+          <div class="stage-num">03</div><h4>Kit Hunter</h4>
+          <p>Passive probing for kit archives attackers leave exposed on the host.</p>
+        </div>
+        <div class="stage" data-stage="3">
+          <div class="stage-num">04</div><h4>Sandbox</h4>
+          <p>Static deobfuscation, <code>--network none</code>, unpacks the kit and surfaces exfil channels.</p>
+        </div>
+        <div class="stage" data-stage="4">
+          <div class="stage-num">05</div><h4>Clustering</h4>
+          <p>TLSH fuzzy hashing and file-overlap group kits into threat-actor profiles.</p>
+        </div>
+        <div class="stage" data-stage="5">
+          <div class="stage-num">06</div><h4>Takedown</h4>
+          <p>RDAP-enriched abuse notices go out to the registrar or host — automatically.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════ LIVE THREAT CONSTELLATION ═══════════════ -->
+  <section class="constellation" id="constellation">
+    <div class="sec-header reveal">
+      <div class="sec-heading">
+        <p class="eyebrow signal">Live Output — Not A Mockup</p>
+        <h2 class="section-title">Every node below is a real database row.</h2>
+        <p class="section-lead">The pipeline above produces this: each point is a currently-live phishing URL, positioned and colored by its triage score, connected to the Outpost core. Drag to orbit, hover for detail, click a node to jump straight to its record in the table underneath.</p>
+      </div>
+      <div class="scene-legend">
+        <span class="legend-item"><i class="dot" style="background:var(--danger);color:var(--danger)"></i>Critical · 80+</span>
+        <span class="legend-item"><i class="dot" style="background:var(--amber);color:var(--amber)"></i>High · 60+</span>
+        <span class="legend-item"><i class="dot" style="background:var(--intel);color:var(--intel)"></i>Medium · 40+</span>
+        <span class="legend-item"><i class="dot" style="background:var(--muted);color:var(--muted)"></i>Low</span>
+      </div>
+    </div>
+
+    <div class="scene-stage reveal reveal-delay-1" id="constellation-stage">
+      <div class="scene-hud scene-hud--tl"><span class="live-dot-sm"></span>constellation.viewport</div>
+      <div class="scene-hud scene-hud--tr">drag to orbit · hover for detail</div>
+      <div class="scene-hud scene-hud--bl" id="constellation-count">0 nodes rendered</div>
+      <div class="scene-hud scene-hud--br">outpost core ⌁ live feed</div>
+      <div class="activity-ticker" id="constellation-ticker" aria-hidden="true"></div>
+      <div class="scene-empty-hint" id="constellation-empty">
+        Awaiting confirmed detections — this view populates automatically the moment the pipeline scores a live phish above the takedown threshold. Nothing here is simulated.
+      </div>
+    </div>
+  </section>
+
+  <!-- RAW RECORDS: Feed Table + Activity (collapsed — the 3D constellation
+       above and the activity ticker inside it are now the primary view) -->
+  <details class="raw-panel reveal">
+    <summary>
+      <span class="live-dot"></span>
+      Live Phishing Feed — Raw Records
+      <span class="rp-count" id="live-feed-count">0</span>
+      <span class="panel-meta" id="refresh-timer" style="margin-left:auto;text-transform:none;letter-spacing:0">next sync in 30s</span>
+    </summary>
+    <div class="panel-body">
+      <table class="feed-table">
+        <thead>
+          <tr><th>URL</th><th>Brand</th><th>Score</th><th>First Seen</th><th>Status</th></tr>
+        </thead>
+        <tbody id="live-feed-body"></tbody>
+      </table>
+      <div class="empty-state" id="live-empty" style="display:none;">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></div>
+        <p>No confirmed live phishing sites yet</p>
+        <p class="empty-hint">pipeline is triaging URLs — results appear here automatically</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="raw-panel reveal reveal-delay-1">
+    <summary>
+      Recent Activity — Raw Records
+      <span class="rp-count" id="recent-count">0</span>
+      <span class="panel-badge badge-ok" style="margin-left:auto">Live</span>
+    </summary>
+    <div class="panel-body">
+      <div class="activity-feed" id="recent-timeline"></div>
+      <div class="empty-state" id="recent-empty" style="display:none;">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></div>
+        <p>Awaiting triage results</p>
+      </div>
+    </div>
+  </details>
+
+  <!-- ═══════════════════════════ TAKEDOWN FLOW ═══════════════════════════ -->
+  <section class="takedownflow" id="takedownflow">
+    <div class="sec-header reveal">
+      <div class="sec-heading">
+        <p class="eyebrow amber">Live Output — Not A Mockup</p>
+        <h2 class="section-title">Every burst below actually left the building.</h2>
+        <p class="section-lead">Each flight is a real abuse notice the takedown stage dispatched — packets fly from the Outpost core out to the registrar, host, or platform abuse desk that received it, and the target brightens with every notice it's absorbed. Drag to orbit, click a target for its class, full audit detail sits in the dispatch log underneath.</p>
+      </div>
+      <div class="scene-legend">
+        <span class="legend-item"><i class="dot" style="background:var(--intel);color:var(--intel)"></i>Registrar</span>
+        <span class="legend-item"><i class="dot" style="background:var(--amber);color:var(--amber)"></i>Host</span>
+        <span class="legend-item"><i class="dot" style="background:var(--violet);color:var(--violet)"></i>Telegram / Discord</span>
+        <span class="legend-item"><i class="dot" style="background:var(--signal);color:var(--signal)"></i>Other</span>
+      </div>
+    </div>
+
+    <div class="scene-stage reveal reveal-delay-1" id="takedownflow-stage">
+      <div class="scene-hud scene-hud--tl"><span class="live-dot-sm"></span>takedown.viewport</div>
+      <div class="scene-hud scene-hud--tr">drag to orbit · click a target</div>
+      <div class="scene-hud scene-hud--bl" id="takedownflow-count">0 dispatches sent</div>
+      <div class="scene-hud scene-hud--br">core ⌁ abuse desks</div>
+      <div class="scene-empty-hint" id="takedownflow-empty">
+        Awaiting the first dispatch — this view fires the moment the takedown stage files an abuse notice. Nothing here is simulated.
+      </div>
+    </div>
+  </section>
+
+  <!-- TAKEDOWNS AUDIT LOG ROW -->
+  <div class="panel tilt reveal" style="margin-bottom:1.5rem;">
+    <div class="panel-head">
+      <div class="panel-title">
+        <span class="live-dot" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></span>
+        Takedown Dispatch Log — Abuse Report Audit Trail
+      </div>
+      <span class="panel-badge badge-warn">Dispatched Notices</span>
+    </div>
+    <div class="panel-body">
+      <table class="feed-table">
+        <thead>
+          <tr><th>Recipient / Abuse Desk</th><th>Target Type</th><th>Notice Subject</th><th>Target URL</th><th>Sent</th><th>Status</th></tr>
+        </thead>
+        <tbody id="takedown-log-body"></tbody>
+      </table>
+      <div class="empty-state" id="takedown-empty" style="display:none;">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2 4 5v6c0 5 3.4 8 8 11 4.6-3 8-6 8-11V5l-8-3z"/></svg></div>
+        <p>No takedown dispatches recorded yet</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW -->
+  <div class="charts-row">
+
+    <div class="chart-panel tilt reveal">
+      <div class="chart-head">
+        <div class="chart-title">Threat Radar</div>
+        <div class="chart-stat" id="radar-peak">—</div>
+      </div>
+      <div class="chart-body">
+        <canvas id="radar-canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-panel tilt reveal reveal-delay-1">
+      <div class="chart-head">
+        <div class="chart-title">Triage Volume</div>
+        <div class="chart-stat">Last 16 cycles</div>
+      </div>
+      <div class="chart-body chart-body--bars">
+        <canvas id="triage-canvas" style="height:160px;"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-panel tilt reveal reveal-delay-2">
+      <div class="chart-head">
+        <div class="chart-title">Brand Targeting</div>
+        <div class="chart-stat">Active Phish</div>
+      </div>
+      <div class="chart-body" style="align-items:flex-start;">
+        <div class="brand-meter" id="brand-meter">
+          <div class="bm-item"><span class="bm-name" style="color:var(--muted-3)">loading…</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
 
 </main>
 
 <!-- ═══════════════════════════════ FOOTER ════════════════════════════════════ -->
-<footer>
-    <div class="footer-inner">
-        <div class="footer-left">
-            passive research only &nbsp;·&nbsp; no kits executed &nbsp;·&nbsp; no victim data retained &nbsp;·&nbsp; see docs/SCOPE_AND_ETHICS.md
-        </div>
-        <div class="footer-right">
-            <span>built by</span>
-            <a class="footer-dev-link" href="https://github.com/faseehfawaz" target="_blank" rel="noopener noreferrer">
-                <svg class="gh-svg" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-                </svg>
-                Faseeh Padinjarathil
-            </a>
-        </div>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="logo-wrap" aria-label="Outpost home">
+          <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="11" fill="rgba(57,255,136,.07)" stroke="var(--signal)" stroke-width="1.3"/>
+            <line x1="16" y1="16" x2="16" y2="4.5" stroke="var(--intel)" stroke-opacity=".45" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="6" y2="23" stroke="var(--intel)" stroke-opacity=".45" stroke-width="1.2"/>
+            <line x1="16" y1="16" x2="26" y2="23" stroke="var(--intel)" stroke-opacity=".45" stroke-width="1.2"/>
+            <circle cx="16" cy="4.5" r="2" fill="var(--intel)" fill-opacity=".8"/>
+            <circle cx="6" cy="23" r="2" fill="var(--intel)" fill-opacity=".8"/>
+            <circle cx="26" cy="23" r="2" fill="var(--intel)" fill-opacity=".8"/>
+            <circle cx="16" cy="16" r="5" fill="var(--signal)"/>
+          </svg>
+          <div class="logo-text"><span class="logo-name">OUTPOST</span></div>
+        </a>
+        <p>Threat intelligence &amp; automated takedown — the live module of the heapleap cyber defense suite.</p>
+        <p class="suite-tag"><a href="https://heapleap.tech" target="_blank" rel="noopener noreferrer">heapleap.tech ↗</a></p>
+      </div>
+      <div class="footer-col">
+        <h5>Platform</h5>
+        <ul>
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="actors.html">Actors</a></li>
+          <li><a href="ioc.html">IOC Feed</a></li>
+          <li><a href="/docs">API Docs</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Suite Status</h5>
+        <ul class="status-list">
+          <li><span class="dot on"></span>Outpost — Live</li>
+          <li><a href="https://heapleap.tech/#suite" target="_blank" rel="noopener noreferrer"><span class="dot off"></span>Herald — In development</a></li>
+          <li><a href="https://heapleap.tech/#suite" target="_blank" rel="noopener noreferrer"><span class="dot off"></span>Atlas — In development</a></li>
+          <li><a href="https://heapleap.tech/#suite" target="_blank" rel="noopener noreferrer"><span class="dot off"></span>Horizon — In development</a></li>
+          <li><a href="https://heapleap.tech/#suite" target="_blank" rel="noopener noreferrer"><span class="dot off"></span>Mirage — In development</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Contact</h5>
+        <ul>
+          <li><a href="mailto:security@heapleap.tech">security@heapleap.tech</a></li>
+          <li><a href="https://github.com/faseehfawaz/outpost" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+        </ul>
+      </div>
     </div>
+    <div class="footer-bottom">
+      <span class="footer-left">passive research only · no kits executed · no victim data retained · see docs/SCOPE_AND_ETHICS.md</span>
+      <div class="footer-right">
+        <span>built by</span>
+        <a class="footer-dev-link" href="https://github.com/faseehfawaz" target="_blank" rel="noopener noreferrer">
+          <svg class="gh-svg" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          Faseeh Padinjarathil
+        </a>
+      </div>
+    </div>
+  </div>
 </footer>
 
-<script src="js/app.js"></script>
-<script src="js/charts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="js/scene3d.js?v=4.0"></script>
+<script src="js/app.js?v=4.0"></script>
+<script src="js/charts.js?v=4.0"></script>
+<script src="js/pipeline.js?v=4.0"></script>
+<script src="js/constellation.js?v=4.0"></script>
+<script src="js/takedownflow.js?v=4.0"></script>
 
 </body>
 </html>

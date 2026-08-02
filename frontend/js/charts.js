@@ -1,170 +1,34 @@
 /**
- * charts.js — All animated visualizations for Outpost
- * Particle background, sparklines, radar chart, triage bars, brand meter
+ * charts.js — Precision 2D data visualizations for Outpost
+ * Sparklines, radar chart, triage volume bars, brand-targeting meter.
+ * The ambient node-link background is now the WebGL field in scene3d.js —
+ * ordinary charts stay crisp 2D canvas so real numbers stay exact.
  */
 
 const C = {
-    CYAN:   '#00ff41',
-    BLUE:   '#00cc44',
-    RED:    '#ff2d55',
-    ORANGE: '#ff6b35',
-    YELLOW: '#ffd60a',
-    GREEN:  '#00ff41',
-    PURPLE: '#a78bfa',
-    DIM:    'rgba(0,255,65,0.12)',
+    SIGNAL: '#39ff88',
+    INTEL:  '#5eebff',
+    AMBER:  '#ffb84d',
+    DANGER: '#ff4d6d',
+    VIOLET: '#a78bfa',
+    MUTED:  '#5c6a6d',
 };
 
-// ============================================================
-// 1. PARTICLE BACKGROUND
-// ============================================================
-(function initParticles() {
-    const canvas = document.getElementById('bg-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+const reduceMotionCharts = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    let W, H, particles, mouse = { x: -999, y: -999 };
-    const COUNT = 90;
-    const MAX_DIST = 140;
-
-    function resize() {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-    }
-
-    function Particle() {
-        this.x  = Math.random() * W;
-        this.y  = Math.random() * H;
-        this.vx = (Math.random() - 0.5) * 0.35;
-        this.vy = (Math.random() - 0.5) * 0.35;
-        this.r  = Math.random() * 1.5 + 0.5;
-        this.alpha = Math.random() * 0.35 + 0.08;
-        this.pulse = Math.random() * Math.PI * 2;
-        this.pulseSpeed = Math.random() * 0.015 + 0.005;
-        this.color = Math.random() > 0.7 ? C.CYAN : (Math.random() > 0.5 ? C.BLUE : '#008822');
-    }
-
-    function build() {
-        particles = Array.from({ length: COUNT }, () => new Particle());
-    }
-
-    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-    window.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
-
-    function draw() {
-        ctx.clearRect(0, 0, W, H);
-
-        // Draw connections
-        for (let i = 0; i < particles.length; i++) {
-            const a = particles[i];
-            for (let j = i + 1; j < particles.length; j++) {
-                const b = particles[j];
-                const dx = a.x - b.x, dy = a.y - b.y;
-                const d  = Math.sqrt(dx * dx + dy * dy);
-                if (d > MAX_DIST) continue;
-                const alpha = (1 - d / MAX_DIST) * 0.12;
-                ctx.beginPath();
-                ctx.moveTo(a.x, a.y);
-                ctx.lineTo(b.x, b.y);
-                ctx.strokeStyle = `rgba(0, 200, 60, ${alpha})`;
-                ctx.lineWidth = 0.5;
-                ctx.stroke();
-            }
-        }
-
-        // Mouse repulsion + draw particles
-        particles.forEach(p => {
-            p.pulse += p.pulseSpeed;
-            const glow = (Math.sin(p.pulse) + 1) / 2;
-
-            // Mouse attract
-            const mdx = mouse.x - p.x, mdy = mouse.y - p.y;
-            const md  = Math.sqrt(mdx * mdx + mdy * mdy);
-            if (md < 120) {
-                p.vx += (mdx / md) * 0.02;
-                p.vy += (mdy / md) * 0.02;
-            }
-
-            // Velocity cap
-            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-            if (speed > 1.2) { p.vx *= 0.95; p.vy *= 0.95; }
-
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.x < 0 || p.x > W) p.vx *= -1;
-            if (p.y < 0 || p.y > H) p.vy *= -1;
-
-            const r  = p.r + glow * 0.8;
-            const al = p.alpha * (0.7 + glow * 0.3);
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            ctx.fillStyle = p.color.replace(')', `, ${al})`).replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/, (_, h) =>
-                `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`);
-            ctx.fill();
-        });
-
-        requestAnimationFrame(draw);
-    }
-
-    // Helper: hex→rgba
-    function hexToRgba(hex, a) {
-        const n = parseInt(hex.slice(1), 16);
-        return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
-    }
-
-    // Re-draw particles with proper color
-    function drawParticles() {
-        ctx.clearRect(0, 0, W, H);
-        for (let i = 0; i < particles.length; i++) {
-            const a = particles[i];
-            for (let j = i + 1; j < particles.length; j++) {
-                const b = particles[j];
-                const dx = a.x - b.x, dy = a.y - b.y;
-                const d  = Math.sqrt(dx * dx + dy * dy);
-                if (d > MAX_DIST) continue;
-                const alpha = (1 - d / MAX_DIST) * 0.12;
-                ctx.beginPath();
-                ctx.moveTo(a.x, a.y);
-                ctx.lineTo(b.x, b.y);
-                ctx.strokeStyle = `rgba(0, 200, 60, ${alpha})`;
-                ctx.lineWidth   = 0.5;
-                ctx.stroke();
-            }
-        }
-        particles.forEach(p => {
-            p.pulse += p.pulseSpeed;
-            const g  = (Math.sin(p.pulse) + 1) / 2;
-            const al = p.alpha * (0.6 + g * 0.4);
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r + g * 0.7, 0, Math.PI * 2);
-            ctx.fillStyle = hexToRgba(p.color, al);
-            ctx.fill();
-
-            const mdx = mouse.x - p.x, mdy = mouse.y - p.y;
-            const md  = Math.sqrt(mdx * mdx + mdy * mdy);
-            if (md < 120) { p.vx += (mdx / md) * 0.018; p.vy += (mdy / md) * 0.018; }
-            const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-            if (sp > 1.2) { p.vx *= 0.95; p.vy *= 0.95; }
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < 0 || p.x > W) p.vx *= -1;
-            if (p.y < 0 || p.y > H) p.vy *= -1;
-        });
-        requestAnimationFrame(drawParticles);
-    }
-
-    window.addEventListener('resize', () => { resize(); build(); });
-    resize(); build();
-    requestAnimationFrame(drawParticles);
-})();
-
+function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
 
 // ============================================================
-// 2. SPARKLINES (stat card mini-charts)
+// SPARKLINES (stat card mini-charts)
 // ============================================================
 function drawSparkline(canvasId, data, color) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const parent = canvas.parentElement;
-    canvas.width  = parent.offsetWidth;
+    canvas.width = parent.offsetWidth;
     canvas.height = 32;
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
@@ -173,13 +37,12 @@ function drawSparkline(canvasId, data, color) {
 
     ctx.clearRect(0, 0, W, H);
 
-    // If all values are zero, draw a dim baseline — no fake activity
     const allZero = data.every(v => v <= 0);
     if (allZero) {
         ctx.beginPath();
         ctx.moveTo(0, H - 2);
         ctx.lineTo(W, H - 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.strokeStyle = 'rgba(233,237,239,0.06)';
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
         ctx.stroke();
@@ -187,11 +50,10 @@ function drawSparkline(canvasId, data, color) {
         return;
     }
 
-    // Fill gradient
+    const rgb = hexToRgb(color);
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, color.replace(')', ', 0.2)').replace('#', 'rgba(').replace(/rgba\(([0-9a-f]{6})/i, (_, h) =>
-        `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`));
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    grad.addColorStop(0, `rgba(${rgb},0.22)`);
+    grad.addColorStop(1, `rgba(${rgb},0)`);
 
     ctx.beginPath();
     data.forEach((v, i) => {
@@ -205,45 +67,37 @@ function drawSparkline(canvasId, data, color) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Line
     ctx.beginPath();
     data.forEach((v, i) => {
         const x = i * step;
         const y = H - (v / max) * (H - 4) - 2;
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
-
-    function hexToRgb(hex) {
-        const n = parseInt(hex.slice(1), 16);
-        return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
-    }
-
-    ctx.strokeStyle = `rgba(${hexToRgb(color)}, 0.8)`;
+    ctx.strokeStyle = `rgba(${rgb},0.85)`;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // End dot
     const last = data[data.length - 1];
-    const lx   = (data.length - 1) * step;
-    const ly   = H - (last / max) * (H - 4) - 2;
+    const lx = (data.length - 1) * step;
+    const ly = H - (last / max) * (H - 4) - 2;
     ctx.beginPath();
     ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
     ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
     ctx.fill();
+    ctx.shadowBlur = 0;
 }
 
 function initSparklines() {
-    // Read actual stat values from the DOM
     const getVal = (id) => {
         const el = document.getElementById(id);
         if (!el) return 0;
         return parseInt(el.textContent.replace(/,/g, '').replace('—', '0')) || 0;
     };
 
-    // Generate sparkline data: if val is 0, flat line; otherwise gentle activity
     const sparkData = (val, n) => {
         if (val === 0) return Array(n).fill(0);
-        // Generate realistic-looking activity around the value
         const data = [];
         let current = val * 0.3;
         for (let i = 0; i < n; i++) {
@@ -251,7 +105,6 @@ function initSparklines() {
             current = Math.max(0, Math.min(val * 1.2, current));
             data.push(current);
         }
-        // End near current value
         data[n - 1] = val * (0.85 + Math.random() * 0.3);
         return data;
     };
@@ -262,19 +115,18 @@ function initSparklines() {
     const actors = getVal('stat-actors');
     const takedowns = getVal('stat-takedowns');
 
-    drawSparkline('spark-total',     sparkData(total, 16),     C.BLUE);
-    drawSparkline('spark-phish',     sparkData(phish, 16),     C.RED);
-    drawSparkline('spark-kits',      sparkData(kits, 16),      C.CYAN);
-    drawSparkline('spark-actors',    sparkData(actors, 16),    C.CYAN);
-    drawSparkline('spark-takedowns', sparkData(takedowns, 16), C.ORANGE);
+    drawSparkline('spark-total',     sparkData(total, 16),     C.INTEL);
+    drawSparkline('spark-phish',     sparkData(phish, 16),     C.DANGER);
+    drawSparkline('spark-kits',      sparkData(kits, 16),      C.SIGNAL);
+    drawSparkline('spark-actors',    sparkData(actors, 16),    C.SIGNAL);
+    drawSparkline('spark-takedowns', sparkData(takedowns, 16), C.AMBER);
 }
 
-// Re-draw sparklines after stats load (called from app.js after countUp)
 window.refreshSparklines = initSparklines;
 
 
 // ============================================================
-// 3. RADAR THREAT CHART
+// 2. RADAR THREAT CHART
 // ============================================================
 (function initRadar() {
     const canvas = document.getElementById('radar-canvas');
@@ -282,9 +134,8 @@ window.refreshSparklines = initSparklines;
     const ctx = canvas.getContext('2d');
 
     const labels = ['Phish', 'Kits', 'Actors', 'IOCs', 'Takedowns', 'Volume'];
-    let values = [0.3, 0, 0, 0, 0, 0.4]; // normalized 0-1
+    let values = [0.3, 0, 0, 0, 0, 0.4];
     let animValues = [...values];
-    let raf;
 
     function resize() {
         const size = Math.min(canvas.parentElement.offsetWidth, 220);
@@ -294,12 +145,11 @@ window.refreshSparklines = initSparklines;
     function drawRadar(vals) {
         const W = canvas.width, H = canvas.height;
         const cx = W / 2, cy = H / 2;
-        const R  = Math.min(cx, cy) - 28;
-        const N  = labels.length;
+        const R = Math.min(cx, cy) - 28;
+        const N = labels.length;
 
         ctx.clearRect(0, 0, W, H);
 
-        // Grid rings
         for (let ring = 1; ring <= 4; ring++) {
             const r = (ring / 4) * R;
             ctx.beginPath();
@@ -310,90 +160,82 @@ window.refreshSparklines = initSparklines;
                 i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
             }
             ctx.closePath();
-            ctx.strokeStyle = `rgba(0,128,255,${0.06 + ring * 0.03})`;
+            ctx.strokeStyle = `rgba(94,235,255,${0.05 + ring * 0.025})`;
             ctx.lineWidth = 0.75;
             ctx.stroke();
         }
 
-        // Spokes
         for (let i = 0; i < N; i++) {
             const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(cx + R * Math.cos(angle), cy + R * Math.sin(angle));
-            ctx.strokeStyle = 'rgba(0,128,255,0.12)';
+            ctx.strokeStyle = 'rgba(94,235,255,0.1)';
             ctx.lineWidth = 0.75;
             ctx.stroke();
         }
 
-        // Data shape
         ctx.beginPath();
         vals.forEach((v, i) => {
             const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
-            const r  = v * R;
-            const x  = cx + r * Math.cos(angle);
-            const y  = cy + r * Math.sin(angle);
+            const r = v * R;
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         });
         ctx.closePath();
 
         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-        grad.addColorStop(0, 'rgba(0,255,65,0.2)');
-        grad.addColorStop(1, 'rgba(0,180,40,0.03)');
-        ctx.fillStyle   = grad;
+        grad.addColorStop(0, 'rgba(57,255,136,.22)');
+        grad.addColorStop(1, 'rgba(57,255,136,.02)');
+        ctx.fillStyle = grad;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,255,65,0.75)';
-        ctx.lineWidth   = 1.5;
+        ctx.strokeStyle = 'rgba(57,255,136,.8)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Vertices
         vals.forEach((v, i) => {
             const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
-            const r  = v * R;
-            const x  = cx + r * Math.cos(angle);
-            const y  = cy + r * Math.sin(angle);
+            const r = v * R;
+            const x = cx + r * Math.cos(angle);
+            const y = cy + r * Math.sin(angle);
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, Math.PI * 2);
-            ctx.fillStyle = C.CYAN;
-            ctx.shadowColor = C.CYAN;
-            ctx.shadowBlur  = 8;
+            ctx.fillStyle = C.INTEL;
+            ctx.shadowColor = C.INTEL;
+            ctx.shadowBlur = 8;
             ctx.fill();
             ctx.shadowBlur = 0;
         });
 
-        // Labels
-        ctx.font = '7px JetBrains Mono, monospace';
+        ctx.font = '7px IBM Plex Mono, monospace';
         ctx.textAlign = 'center';
         labels.forEach((lbl, i) => {
             const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
-            const lr    = R + 16;
-            const x     = cx + lr * Math.cos(angle);
-            const y     = cy + lr * Math.sin(angle) + 3;
-            ctx.fillStyle = 'rgba(90,127,168,0.8)';
+            const lr = R + 16;
+            const x = cx + lr * Math.cos(angle);
+            const y = cy + lr * Math.sin(angle) + 3;
+            ctx.fillStyle = 'rgba(143,160,163,0.85)';
             ctx.fillText(lbl.toUpperCase(), x, y);
         });
     }
 
     function animate() {
-        // Lerp toward target
-        let changed = false;
         animValues = animValues.map((v, i) => {
             const diff = values[i] - v;
-            if (Math.abs(diff) > 0.001) { changed = true; return v + diff * 0.06; }
-            return values[i];
+            return Math.abs(diff) > 0.001 ? v + diff * 0.06 : values[i];
         });
         drawRadar(animValues);
 
-        // Slow autonomous animation
-        values = values.map((v, i) => {
-            const t = Date.now() * 0.0005 + i * 1.2;
-            return Math.min(1, Math.max(0.05, v + Math.sin(t) * 0.003));
-        });
-
-        raf = requestAnimationFrame(animate);
+        if (!reduceMotionCharts) {
+            values = values.map((v, i) => {
+                const t = Date.now() * 0.0005 + i * 1.2;
+                return Math.min(1, Math.max(0.05, v + Math.sin(t) * 0.003));
+            });
+        }
+        requestAnimationFrame(animate);
     }
 
-    // Expose update function
     window.updateRadar = (liveData) => {
         const phishCount = liveData.length;
         values[0] = Math.min(1, phishCount / 20);
@@ -401,14 +243,14 @@ window.refreshSparklines = initSparklines;
         if (el) el.textContent = `${phishCount} active`;
     };
 
-    window.addEventListener('resize', () => { resize(); });
+    window.addEventListener('resize', resize);
     resize();
     animate();
 })();
 
 
 // ============================================================
-// 4. TRIAGE VOLUME BAR CHART
+// 3. TRIAGE VOLUME BAR CHART
 // ============================================================
 (function initTriageChart() {
     const canvas = document.getElementById('triage-canvas');
@@ -422,98 +264,92 @@ window.refreshSparklines = initSparklines;
         label: `T-${N - i}`,
     }));
 
-    // Animate in from 0
-    let prog = 0;
     const ANIM_DURATION = 1000;
     const ANIM_START = Date.now();
 
     function resize() {
         const parent = canvas.parentElement;
-        canvas.width  = parent.offsetWidth;
+        canvas.width = parent.offsetWidth;
         canvas.height = 160;
     }
 
     function draw() {
-        const t  = Math.min((Date.now() - ANIM_START) / ANIM_DURATION, 1);
-        const ep = 1 - Math.pow(1 - t, 3); // ease out cubic
+        const t = Math.min((Date.now() - ANIM_START) / ANIM_DURATION, 1);
+        const ep = 1 - Math.pow(1 - t, 3);
 
-        const W  = canvas.width, H = canvas.height;
+        const W = canvas.width, H = canvas.height;
         const PAD_LEFT = 28, PAD_RIGHT = 8, PAD_TOP = 8, PAD_BOT = 20;
         const chartW = W - PAD_LEFT - PAD_RIGHT;
         const chartH = H - PAD_TOP - PAD_BOT;
 
         ctx.clearRect(0, 0, W, H);
 
-        const max  = Math.max(...data.map(d => d.total), 1);
+        const max = Math.max(...data.map(d => d.total), 1);
         const barW = Math.floor(chartW / N) - 2;
-        const gap  = Math.floor(chartW / N);
+        const gap = Math.floor(chartW / N);
 
-        // Horizontal grid lines
         for (let g = 0; g <= 4; g++) {
             const y = PAD_TOP + chartH - (g / 4) * chartH;
             ctx.beginPath();
             ctx.moveTo(PAD_LEFT, y);
             ctx.lineTo(W - PAD_RIGHT, y);
-            ctx.strokeStyle = `rgba(0,128,255,${g === 0 ? 0.2 : 0.06})`;
+            ctx.strokeStyle = `rgba(94,235,255,${g === 0 ? 0.18 : 0.05})`;
             ctx.lineWidth = g === 0 ? 1 : 0.5;
             ctx.stroke();
             if (g > 0) {
-                ctx.font = '7px JetBrains Mono, monospace';
-                ctx.fillStyle = 'rgba(0,128,255,0.3)';
+                ctx.font = '7px IBM Plex Mono, monospace';
+                ctx.fillStyle = 'rgba(94,235,255,0.35)';
                 ctx.textAlign = 'right';
                 ctx.fillText(Math.round((g / 4) * max), PAD_LEFT - 3, y + 3);
             }
         }
 
         data.forEach((d, i) => {
-            const x       = PAD_LEFT + i * gap;
-            const totalH  = (d.total / max) * chartH * ep;
-            const phishH  = (d.phish / max) * chartH * ep;
-            const baseY   = PAD_TOP + chartH;
+            const x = PAD_LEFT + i * gap;
+            const totalH = (d.total / max) * chartH * ep;
+            const phishH = (d.phish / max) * chartH * ep;
+            const baseY = PAD_TOP + chartH;
 
-            // Total bar
             const gTotal = ctx.createLinearGradient(0, baseY - totalH, 0, baseY);
-            gTotal.addColorStop(0, 'rgba(0,255,65,0.6)');
-            gTotal.addColorStop(1, 'rgba(0,100,20,0.08)');
+            gTotal.addColorStop(0, 'rgba(57,255,136,.55)');
+            gTotal.addColorStop(1, 'rgba(57,255,136,.06)');
             ctx.fillStyle = gTotal;
             ctx.fillRect(x, baseY - totalH, barW, totalH);
 
-            // Phish overlay
             if (d.phish > 0) {
                 const gPhish = ctx.createLinearGradient(0, baseY - phishH, 0, baseY);
-                gPhish.addColorStop(0, 'rgba(255,45,85,0.85)');
-                gPhish.addColorStop(1, 'rgba(255,45,85,0.15)');
+                gPhish.addColorStop(0, 'rgba(255,77,109,.85)');
+                gPhish.addColorStop(1, 'rgba(255,77,109,.15)');
                 ctx.fillStyle = gPhish;
                 ctx.fillRect(x, baseY - phishH, barW, phishH);
             }
 
-            // Top cap
             const isLast = i === data.length - 1;
-            ctx.fillStyle = isLast ? C.CYAN : 'rgba(0,200,50,0.7)';
+            ctx.fillStyle = isLast ? C.INTEL : 'rgba(57,255,136,.65)';
             if (totalH > 0) ctx.fillRect(x, baseY - totalH, barW, 2);
         });
 
-        // Legend
-        ctx.font = '7px JetBrains Mono, monospace';
+        ctx.font = '7px IBM Plex Mono, monospace';
         ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(0,255,65,0.45)';
+        ctx.fillStyle = 'rgba(57,255,136,.5)';
         ctx.fillText('■ TOTAL', W - 80, PAD_TOP + 10);
-        ctx.fillStyle = 'rgba(255,45,85,0.55)';
+        ctx.fillStyle = 'rgba(255,77,109,.6)';
         ctx.fillText('■ PHISH', W - 80, PAD_TOP + 20);
 
         if (t < 1) requestAnimationFrame(draw);
     }
 
-    // Roll data every 6 seconds
-    setInterval(() => {
-        data.shift();
-        data.push({
-            total: Math.floor(Math.random() * 120 + 30),
-            phish: Math.floor(Math.random() * 15),
-        });
-        resize();
-        draw();
-    }, 6000);
+    if (!reduceMotionCharts) {
+        setInterval(() => {
+            data.shift();
+            data.push({
+                total: Math.floor(Math.random() * 120 + 30),
+                phish: Math.floor(Math.random() * 15),
+            });
+            resize();
+            draw();
+        }, 6000);
+    }
 
     window.addEventListener('resize', () => { resize(); draw(); });
     resize();
@@ -522,11 +358,11 @@ window.refreshSparklines = initSparklines;
 
 
 // ============================================================
-// 5. BRAND TARGETING METER
+// 4. BRAND TARGETING METER
 // ============================================================
-const BRAND_COLORS = [C.RED, C.ORANGE, C.YELLOW, C.CYAN, C.BLUE, C.PURPLE, C.GREEN];
+const BRAND_COLORS = [C.DANGER, C.AMBER, C.INTEL, C.SIGNAL, C.VIOLET, '#7dd3fc', '#fca5a5'];
 
-window.updateBrandMeter = function(liveData) {
+window.updateBrandMeter = function (liveData) {
     const container = document.getElementById('brand-meter');
     if (!container) return;
 
@@ -536,26 +372,25 @@ window.updateBrandMeter = function(liveData) {
     });
 
     if (Object.keys(brands).length === 0) {
-        container.innerHTML = `<div class="bm-item"><span class="bm-name" style="color:var(--t-muted)">no data</span></div>`;
+        container.innerHTML = `<div class="bm-item"><span class="bm-name" style="color:var(--muted-3)">no data</span></div>`;
         return;
     }
 
-    const sorted  = Object.entries(brands).sort((a, b) => b[1] - a[1]).slice(0, 7);
+    const sorted = Object.entries(brands).sort((a, b) => b[1] - a[1]).slice(0, 7);
     const maxCount = sorted[0][1];
 
     container.innerHTML = sorted.map(([name, count], i) => {
         const pct = Math.round((count / maxCount) * 100);
         return `
         <div class="bm-item">
-            <span class="bm-name">${name}</span>
+            <span class="bm-name">${U.escapeHtml(name)}</span>
             <div class="bm-track">
-                <div class="bm-fill" style="width:0%;background:${BRAND_COLORS[i % BRAND_COLORS.length]}" data-pct="${pct}"></div>
+                <div class="bm-fill" style="width:0%;background:${BRAND_COLORS[i % BRAND_COLORS.length]};color:${BRAND_COLORS[i % BRAND_COLORS.length]}" data-pct="${pct}"></div>
             </div>
             <span class="bm-count">${count}</span>
         </div>`;
     }).join('');
 
-    // Animate bars
     requestAnimationFrame(() => {
         container.querySelectorAll('.bm-fill').forEach(el => {
             el.style.width = el.dataset.pct + '%';
@@ -564,11 +399,10 @@ window.updateBrandMeter = function(liveData) {
 };
 
 // ============================================================
-// 6. BOOT: Fallback brand meter from API if no live data yet
+// 5. BOOT — fallback brand meter / radar from API if no live data yet
 // ============================================================
 async function bootCharts() {
     initSparklines();
-
     try {
         const res = await fetch('/api/feeds/live');
         if (res.ok) {
@@ -578,7 +412,7 @@ async function bootCharts() {
                 if (window.updateRadar) window.updateRadar(data);
             }
         }
-    } catch (_) {}
+    } catch (_) { /* dashboard boot handles the error state */ }
 }
 
 document.addEventListener('DOMContentLoaded', bootCharts);

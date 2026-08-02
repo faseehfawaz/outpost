@@ -148,15 +148,23 @@ async def health_check() -> dict:
 
 # Mount the static frontend last so it serves index.html at root '/'
 from pathlib import Path
-
 from fastapi.staticfiles import StaticFiles
 
-# Check common locations: Docker container (/app/frontend), then project root
+
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles subclass that prevents stale browser/CDN caching of CSS & JS."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
 _frontend_candidates = [
     Path("/app/frontend"),
     Path(__file__).resolve().parents[3] / "frontend",
 ]
 for _fe_dir in _frontend_candidates:
     if _fe_dir.is_dir():
-        app.mount("/", StaticFiles(directory=str(_fe_dir), html=True), name="frontend")
+        app.mount("/", NoCacheStaticFiles(directory=str(_fe_dir), html=True), name="frontend")
         break
