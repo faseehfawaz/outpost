@@ -36,7 +36,7 @@ def _hunt_one(url_row: dict) -> str:
     try:
         result = hunt(url_row)
 
-        new_state = "collected" if result.collected else "none"
+        new_state = "collected" if result.collected else "exhausted"
         attempts = url_row.get("kithunt_attempts", 0) + 1
 
         execute(

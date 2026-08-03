@@ -93,6 +93,18 @@ def parse_crtsh_json(payload: Any, slug: str) -> Iterator[str]:
                 yield host
 
 
+import time
+from pkintel.logging import get_logger
+
+log = get_logger(__name__)
+
+# Circuit breaker state across runs in process
+_CIRCUIT_OPEN_UNTIL: float = 0.0
+_CONSECUTIVE_FAILURES: int = 0
+_MAX_CONSECUTIVE_FAILURES: int = 3
+_COOLDOWN_SECONDS: float = 1800.0  # 30 minutes
+
+
 class CTAdapter:
     """Feed adapter that polls crt.sh for lookalikes of the priority brands."""
 
@@ -104,17 +116,29 @@ class CTAdapter:
         self.per_brand_cap = per_brand_cap
 
     def fetch(self, client: httpx.Client) -> Iterable[str]:
+        global _CIRCUIT_OPEN_UNTIL, _CONSECUTIVE_FAILURES
+        now = time.time()
+        if now < _CIRCUIT_OPEN_UNTIL:
+            log.warning("crtsh_circuit_open", remaining_s=int(_CIRCUIT_OPEN_UNTIL - now))
+            return
+
         emitted: set[str] = set()
+        failed_count = 0
+        total_attempts = 0
+
         for brand in self.brands:
             slug = brand_slug(brand)
             if not slug:
                 continue
+            total_attempts += 1
             resp = polite_fetch(client, crtsh_query_url(brand))
             if resp is None or resp.status_code != 200:
+                failed_count += 1
                 continue
             try:
                 payload = resp.json()
             except Exception:  # noqa: BLE001 - malformed body must not abort the run
+                failed_count += 1
                 continue
             count = 0
             for host in parse_crtsh_json(payload, slug):
@@ -125,3 +149,12 @@ class CTAdapter:
                 count += 1
                 if count >= self.per_brand_cap:
                     break
+
+        if total_attempts > 0 and failed_count == total_attempts:
+            _CONSECUTIVE_FAILURES += 1
+            log.warning("crtsh_all_failed", consecutive=_CONSECUTIVE_FAILURES)
+            if _CONSECUTIVE_FAILURES >= _MAX_CONSECUTIVE_FAILURES:
+                _CIRCUIT_OPEN_UNTIL = time.time() + _COOLDOWN_SECONDS
+                log.warning("crtsh_circuit_opened", cooldown_s=_COOLDOWN_SECONDS)
+        elif emitted:
+            _CONSECUTIVE_FAILURES = 0

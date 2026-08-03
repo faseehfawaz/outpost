@@ -61,11 +61,32 @@ class Storage:
         log.info("kit_stored", key=key, size=len(data))
         return key
 
+    def _resolve_local_file(self, key: str) -> Path:
+        primary = Path(settings.local_storage_dir) / key
+        if primary.exists():
+            return primary
+        
+        filename = Path(key).name
+        base_dir = Path(settings.local_storage_dir)
+        # Search for matching legacy zip file in storage dir
+        for cand in base_dir.rglob(f"*{filename}*"):
+            if cand.is_file() and cand != primary:
+                primary.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    data = cand.read_bytes()
+                    primary.write_bytes(data)
+                    os.chmod(primary, 0o600)
+                    log.info("auto_migrated_kit_storage", src=str(cand), dst=str(primary))
+                    return primary
+                except Exception as exc:
+                    log.warning("kit_auto_migrate_failed", src=str(cand), error=str(exc))
+        return primary
+
     def get(self, key: str) -> bytes:
         if self._use_r2:
             resp = self._client.get_object(Bucket=settings.r2_bucket, Key=key)
             return resp["Body"].read()
-        return (Path(settings.local_storage_dir) / key).read_bytes()
+        return self._resolve_local_file(key).read_bytes()
 
     def local_path(self, key: str) -> Path | None:
         """Return an on-disk path for the key, materialising from R2 if needed.
@@ -73,7 +94,7 @@ class Storage:
         The analyzer needs a real file to mount read-only into the container.
         """
         if not self._use_r2:
-            return Path(settings.local_storage_dir) / key
+            return self._resolve_local_file(key)
         tmp = Path(settings.local_storage_dir) / key
         tmp.parent.mkdir(parents=True, exist_ok=True)
         if not tmp.exists():

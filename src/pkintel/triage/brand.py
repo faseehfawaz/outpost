@@ -68,6 +68,19 @@ PHISH_KEYWORDS: list[str] = [
     "session expired",
     "click here to verify",
     "confirm now",
+    # Arabic phishing keywords
+    "تأكيد الحساب",
+    "تحديث البيانات",
+    "رمز التحقق",
+    "الهوية الرقمية",
+    "تأكيد الهوية",
+    "تسجيل الدخول",
+    "إيقاف الحساب",
+    "بطاقة الائتمان",
+    "الخدمات المصرفية",
+    "الرمز السري",
+    "انتهت الجلسة",
+    "خصم المبلغ",
 ]
 
 
@@ -121,7 +134,7 @@ def _where(pattern: str, title: str, url: str) -> str:
 
 # Official domains for each brand to prevent false positives on legitimate sites.
 OFFICIAL_DOMAINS: dict[str, list[str]] = {
-    # UAE priority brands
+    # UAE & GCC priority brands
     "Emirates NBD": ["emiratesnbd.com"],
     "Emirates Islamic": ["emiratesislamic.ae"],
     "ADCB": ["adcb.com", "adcbcareers.com"],
@@ -136,6 +149,31 @@ OFFICIAL_DOMAINS: dict[str, list[str]] = {
     "Emirates": ["emirates.com"],
     "Emirates Post": ["emiratespost.ae"],
     "UAE PASS": ["uaepass.ae"],
+    "Dubai Islamic Bank": ["dib.ae"],
+    "Abu Dhabi Islamic Bank": ["adib.ae"],
+    "Commercial Bank of Dubai": ["cbd.ae"],
+    "RAKBANK": ["rakbank.ae"],
+    "Sharjah Islamic Bank": ["sib.ae"],
+    "Wio Bank": ["wio.io"],
+    "Al Maryah Bank": ["mbank.ae"],
+    "Commercial Bank International": ["cbi.ae"],
+    "Salik": ["salik.ae"],
+    "MOHRE": ["mohre.gov.ae"],
+    "ICP": ["icp.gov.ae"],
+    "GDRFA": ["gdrfad.gov.ae"],
+    "Federal Tax Authority": ["tax.gov.ae"],
+    "TAMM": ["tamm.abudhabi"],
+    "SEWA": ["sewa.gov.ae"],
+    "Al Rajhi Bank": ["alrajhibank.com.sa"],
+    "Saudi National Bank": ["alaahlisnb.com"],
+    "STC": ["stc.com.sa"],
+    "Absher": ["absher.sa"],
+    "Nafath": ["iam.gov.sa"],
+    "ZATCA": ["zatca.gov.sa"],
+    "QNB": ["qnb.com"],
+    "NBK": ["nbk.com"],
+    "KFH": ["kfh.com"],
+    "Zain": ["zain.com"],
     # Global brands
     "Microsoft": ["microsoft.com", "office.com", "live.com", "outlook.com"],
     "Apple": ["apple.com", "icloud.com"],
