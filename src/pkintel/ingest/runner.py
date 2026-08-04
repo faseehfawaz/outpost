@@ -25,14 +25,19 @@ from pkintel.config import Settings, settings
 from pkintel.db import connection, record_audit
 from pkintel.http import polite_client
 from pkintel.ingest.base import FeedAdapter
+from pkintel.ingest.apwg import CommunityListsAdapter
 from pkintel.ingest.certpl import CertPlAdapter
 from pkintel.ingest.ct import CTAdapter
+from pkintel.ingest.emerging import MaltrailAdapter
 from pkintel.ingest.github import GitHubListAdapter
 from pkintel.ingest.normalize import canonical_url, host_of, url_hash
 from pkintel.ingest.openphish import OpenPhishAdapter
+from pkintel.ingest.otx import OTXAdapter
 from pkintel.ingest.phishdb import PhishingDatabaseAdapter
 from pkintel.ingest.phishstats import PhishStatsAdapter
 from pkintel.ingest.phishtank import PhishTankAdapter
+from pkintel.ingest.phishunt import PhishuntAdapter
+from pkintel.ingest.stalkphish import StalkPhishAdapter
 from pkintel.ingest.threatfox import ThreatFoxAdapter
 from pkintel.ingest.urlhaus import URLhausAdapter
 from pkintel.ingest.urlscan import UrlscanAdapter
@@ -67,8 +72,8 @@ def build_adapters(cfg: Settings | None = None) -> list[FeedAdapter]:
         adapters.append(URLhausAdapter())
     if cfg.openphish_enabled:
         adapters.append(OpenPhishAdapter())
-    if cfg.urlscan_api_key:
-        adapters.append(UrlscanAdapter(api_key=cfg.urlscan_api_key))
+    # urlscan.io: works without key at reduced rate; key optional for higher limits.
+    adapters.append(UrlscanAdapter(api_key=cfg.urlscan_api_key))
     if cfg.ct_enabled:
         adapters.append(CTAdapter(cfg.priority_brands))
     adapters.append(GitHubListAdapter())
@@ -78,6 +83,11 @@ def build_adapters(cfg: Settings | None = None) -> list[FeedAdapter]:
     adapters.append(PhishStatsAdapter())
     adapters.append(PhishingDatabaseAdapter())
     adapters.append(ThreatFoxAdapter())
+    adapters.append(OTXAdapter())
+    adapters.append(StalkPhishAdapter())
+    adapters.append(PhishuntAdapter())
+    adapters.append(CommunityListsAdapter())
+    adapters.append(MaltrailAdapter())
     return adapters
 
 

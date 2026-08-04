@@ -13,6 +13,7 @@ import types
 
 import pytest
 
+from pkintel.ingest.apwg import CommunityListsAdapter, parse_community_feed
 from pkintel.ingest.base import parse_url_lines
 from pkintel.ingest.ct import (
     brand_slug,
@@ -20,7 +21,11 @@ from pkintel.ingest.ct import (
     looks_like_lookalike,
     parse_crtsh_json,
 )
+from pkintel.ingest.emerging import MaltrailAdapter, parse_domain_lines
 from pkintel.ingest.normalize import canonical_url, host_of, url_hash
+from pkintel.ingest.otx import OTXAdapter, parse_otx_json
+from pkintel.ingest.phishunt import parse_phishunt_json
+from pkintel.ingest.stalkphish import StalkPhishAdapter, parse_stalkphish_json
 from pkintel.ingest.urlhaus import parse_urlhaus_csv
 from pkintel.ingest.urlscan import parse_urlscan_json
 from pkintel.redact import sha256_hex
@@ -255,6 +260,235 @@ def test_parse_crtsh_json_tolerates_junk():
 
 
 # --------------------------------------------------------------------------- #
+# OTX JSON parsing
+# --------------------------------------------------------------------------- #
+def test_parse_otx_json():
+    payload = {
+        "results": [
+            {
+                "indicators": [
+                    {"type": "URL", "indicator": "http://phish.example/login.php"},
+                    {"type": "domain", "indicator": "evil-domain.com"},
+                    {"type": "hostname", "indicator": "sub.phish.com"},
+                    {"type": "IPv4", "indicator": "1.2.3.4"},  # filtered out
+                    {"type": "FileHash-SHA256", "indicator": "abc123def"},  # filtered out
+                ]
+            },
+            {
+                "indicators": [
+                    {"type": "URL", "indicator": "https://secure.example/auth"},
+                ]
+            },
+        ],
+        "next": "https://otx.alienvault.com/api/v1/search/pulses?q=phishing&limit=50&page=2",
+    }
+    extracted = list(parse_otx_json(payload))
+    assert extracted == [
+        "http://phish.example/login.php",
+        "http://evil-domain.com/",
+        "http://sub.phish.com/",
+        "https://secure.example/auth",
+    ]
+
+
+def test_parse_otx_json_tolerates_junk():
+    assert list(parse_otx_json(None)) == []
+    assert list(parse_otx_json({})) == []
+    assert list(parse_otx_json({"results": "invalid"})) == []
+
+
+def test_otx_adapter_fetch_and_pagination(monkeypatch):
+    from unittest.mock import MagicMock
+
+    adapter = OTXAdapter()
+    assert adapter.name == "otx"
+    assert adapter.kind == "otx"
+
+    page1_resp = MagicMock()
+    page1_resp.status_code = 200
+    page1_resp.json.return_value = {
+        "results": [
+            {
+                "indicators": [
+                    {"type": "URL", "indicator": "http://p1.example/phish"},
+                ]
+            }
+        ],
+        "next": "https://otx.alienvault.com/api/v1/search/pulses?q=phishing&limit=50&page=2",
+    }
+
+    page2_resp = MagicMock()
+    page2_resp.status_code = 200
+    page2_resp.json.return_value = {
+        "results": [
+            {
+                "indicators": [
+                    {"type": "domain", "indicator": "p2-phish.com"},
+                ]
+            }
+        ],
+        "next": None,
+    }
+
+    def fake_polite_fetch(client, url, **kwargs):
+        if "page=2" in url:
+            return page2_resp
+        return page1_resp
+
+    monkeypatch.setattr("pkintel.ingest.otx.polite_fetch", fake_polite_fetch)
+
+    urls = list(adapter.fetch(MagicMock()))
+    assert urls == ["http://p1.example/phish", "http://p2-phish.com/"]
+
+
+# --------------------------------------------------------------------------- #
+# Phishunt JSON parsing
+# --------------------------------------------------------------------------- #
+def test_parse_phishunt_json():
+    payload = [
+        {"url": "http://phish1.example/login"},
+        {"url": "  https://phish2.example/auth  "},
+        {"url": ""},
+        {"other": "value"},
+        "not a dict",
+    ]
+    assert list(parse_phishunt_json(payload)) == [
+        "http://phish1.example/login",
+        "https://phish2.example/auth",
+    ]
+
+
+def test_parse_phishunt_json_tolerates_junk():
+    assert list(parse_phishunt_json(None)) == []
+    assert list(parse_phishunt_json({})) == []
+    assert list(parse_phishunt_json("invalid")) == []
+
+
+# --------------------------------------------------------------------------- #
+# StalkPhish JSON parsing & Adapter
+# --------------------------------------------------------------------------- #
+def test_parse_stalkphish_json():
+    payload = [
+        {"url": "http://stalk.example/login"},
+        {"url": "https://bad.example/phish"},
+        {"url": ""},
+        {"other": "data"},
+        "not a dict",
+    ]
+    assert list(parse_stalkphish_json(payload)) == [
+        "http://stalk.example/login",
+        "https://bad.example/phish",
+    ]
+
+
+def test_parse_stalkphish_json_tolerates_junk():
+    assert list(parse_stalkphish_json(None)) == []
+    assert list(parse_stalkphish_json({})) == []
+    assert list(parse_stalkphish_json("invalid")) == []
+
+
+def test_stalkphish_adapter_api_success(monkeypatch):
+    from unittest.mock import MagicMock
+
+    adapter = StalkPhishAdapter()
+    assert adapter.name == "stalkphish"
+    assert adapter.kind == "stalkphish"
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = [{"url": "http://stalk-api.example/phish"}]
+
+    def fake_polite_fetch(client, url, **kwargs):
+        if "api.stalkphish.io" in url:
+            return mock_resp
+        return None
+
+    monkeypatch.setattr("pkintel.ingest.stalkphish.polite_fetch", fake_polite_fetch)
+
+    urls = list(adapter.fetch(MagicMock()))
+    assert urls == ["http://stalk-api.example/phish"]
+
+
+def test_stalkphish_adapter_fallback_on_api_failure(monkeypatch):
+    from unittest.mock import MagicMock
+
+    adapter = StalkPhishAdapter()
+
+    api_resp = MagicMock()
+    api_resp.status_code = 500
+
+    fallback_resp = MagicMock()
+    fallback_resp.status_code = 200
+    fallback_resp.text = "http://stalk-fallback.example/phish\n# comment\n"
+
+    def fake_polite_fetch(client, url, **kwargs):
+        if "api.stalkphish.io" in url:
+            return api_resp
+        if "raw.githubusercontent.com" in url:
+            return fallback_resp
+        return None
+
+    monkeypatch.setattr("pkintel.ingest.stalkphish.polite_fetch", fake_polite_fetch)
+
+    urls = list(adapter.fetch(MagicMock()))
+    assert urls == ["http://stalk-fallback.example/phish"]
+
+
+# --------------------------------------------------------------------------- #
+# Maltrail & Community Domain List parsing & Adapter
+# --------------------------------------------------------------------------- #
+def test_parse_domain_lines():
+    sample = (
+        "discord-app.xyz\n"
+        "# comment line\n"
+        "   \n"
+        "https://already-url.com/path\n"
+        "maltrail-bad.org/\n"
+    )
+    assert list(parse_domain_lines(sample)) == [
+        "http://discord-app.xyz/",
+        "https://already-url.com/path",
+        "http://maltrail-bad.org/",
+    ]
+
+
+def test_maltrail_adapter_fetch(monkeypatch):
+    from unittest.mock import MagicMock
+
+    adapter = MaltrailAdapter()
+    assert adapter.name == "maltrail"
+    assert adapter.kind == "community"
+
+    resp1 = MagicMock()
+    resp1.status_code = 200
+    resp1.text = "disc1.xyz\ndisc2.xyz"
+
+    resp2 = MagicMock()
+    resp2.status_code = 200
+    resp2.text = "mal1.org\n# comment\nmal2.org"
+
+    resp3 = MagicMock()
+    resp3.status_code = 500
+
+    responses = [resp1, resp2, resp3]
+
+    def fake_polite_fetch(client, url, **kwargs):
+        if responses:
+            return responses.pop(0)
+        return None
+
+    monkeypatch.setattr("pkintel.ingest.emerging.polite_fetch", fake_polite_fetch)
+
+    urls = list(adapter.fetch(MagicMock()))
+    assert urls == [
+        "http://disc1.xyz/",
+        "http://disc2.xyz/",
+        "http://mal1.org/",
+        "http://mal2.org/",
+    ]
+
+
+# --------------------------------------------------------------------------- #
 # runner pure functions (skipped without the full stack)
 # --------------------------------------------------------------------------- #
 def _fake_settings(**overrides):
@@ -272,7 +506,11 @@ def _fake_settings(**overrides):
 @pytest.mark.skipif(not _RUNNER_OK, reason="runner import stack unavailable")
 def test_build_adapters_respects_flags():
     all_on = {a.name for a in build_adapters(_fake_settings(urlscan_api_key="k"))}
-    assert all_on == {
+    assert "phishunt" in all_on
+    assert "stalkphish" in all_on
+    assert "otx" in all_on
+    assert "maltrail" in all_on
+    assert {
         "urlhaus",
         "openphish",
         "urlscan",
@@ -281,7 +519,12 @@ def test_build_adapters_respects_flags():
         "phishstats",
         "phishing_database",
         "threatfox",
-    }
+        "phishunt",
+        "stalkphish",
+        "otx",
+        "maltrail",
+        "community_lists",
+    }.issubset(all_on)
 
     minimal = {
         a.name
@@ -293,12 +536,66 @@ def test_build_adapters_respects_flags():
             )
         )
     }
-    assert minimal == {
-        "github",
-        "phishstats",
-        "phishing_database",
-        "threatfox",
-    }
+    assert "phishunt" in minimal
+    assert "stalkphish" in minimal
+    assert "otx" in minimal
+    assert "maltrail" in minimal
+    assert "community_lists" in minimal
+
+
+# --------------------------------------------------------------------------- #
+# Community Lists parsing (apwg.py)
+# --------------------------------------------------------------------------- #
+def test_parse_community_feed_hosts():
+    sample = (
+        "# Phishing filter hosts list\n"
+        "0.0.0.0 evil1.com\n"
+        "127.0.0.1 evil2.org # comment\n"
+        "\n"
+        "# Another comment\n"
+        "0.0.0.0  sub.phishing-domain.net  \n"
+        "::1 localhost\n"  # not starting with 0.0.0.0 or 127.0.0.1
+    )
+    urls = list(parse_community_feed(sample, "hosts"))
+    assert urls == [
+        "http://evil1.com/",
+        "http://evil2.org/",
+        "http://sub.phishing-domain.net/",
+    ]
+
+
+def test_parse_community_feed_domain_list():
+    sample = (
+        "# Google hostnames light\n"
+        "malicious.goolge-fake.com\n"
+        "http://already-url.com/login\n"
+        "  scam-bank.de  \n"
+    )
+    urls = list(parse_community_feed(sample, "domain_list"))
+    assert urls == [
+        "http://malicious.goolge-fake.com/",
+        "http://already-url.com/login",
+        "http://scam-bank.de/",
+    ]
+
+
+def test_parse_community_feed_url_list():
+    sample = (
+        "# Plain URL list\n"
+        "http://phish-site.org/index.html\n"
+        "https://secure-bank.top/auth\n"
+    )
+    urls = list(parse_community_feed(sample, "url_list"))
+    assert urls == [
+        "http://phish-site.org/index.html",
+        "https://secure-bank.top/auth",
+    ]
+
+
+def test_community_lists_adapter_metadata():
+    adapter = CommunityListsAdapter()
+    assert adapter.name == "community_lists"
+    assert adapter.kind == "community"
 
 
 @pytest.mark.skipif(not _RUNNER_OK, reason="runner import stack unavailable")

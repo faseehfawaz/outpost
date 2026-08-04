@@ -1,55 +1,81 @@
-"""PhishStats adapter — free CSV feed with scored phishing URLs.
+"""PhishStats adapter — free JSON API with scored phishing URLs.
 
-PhishStats (phishstats.info) publishes a rolling CSV of phishing URLs with
-scores. The feed is free, requires no API key, and typically contains 5,000+
-active URLs. The CSV schema is::
+PhishStats (phishstats.info) publishes a comprehensive database of phishing URLs
+via their REST API at ``api.phishstats.info``. The old CSV feed is defunct (404).
+The API returns rich JSON objects with URL, IP, ASN, score, brand, and more.
 
-    Date,Score,URL,IP
-
-We yield the ``URL`` column. Canonicalisation happens in the runner.
+We paginate through recent results (sorted by date, newest first) and yield the
+``url`` field. No API key required. Typically yields 500+ fresh URLs per cycle.
 """
 
 from __future__ import annotations
 
-import csv
 from collections.abc import Iterable, Iterator
+from typing import Any
 
 import httpx
 
-from pkintel.ingest.base import fetch_first_text
+from pkintel.ingest.base import polite_fetch
+from pkintel.logging import get_logger
 
-FEED_URLS = [
-    "https://phishstats.info/phish_score.csv",
-]
+log = get_logger(__name__)
 
-_URL_COLUMN = 2
+# REST API endpoint. Supports query params: _sort, _limit, _offset, _where.
+API_URL = "https://api.phishstats.info/api/phishing"
+
+# How many results per page and max pages to fetch.
+_PAGE_SIZE = 500
+_MAX_PAGES = 3
 
 
-def parse_phishstats_csv(text: str) -> Iterator[str]:
-    """Yield the ``URL`` column from each PhishStats CSV row. Pure.
-
-    Comment lines (``#`` prefix) and the header row are skipped.
-    """
-    data_rows = (
-        line
-        for line in text.splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    )
-    for row in csv.reader(data_rows):
-        if len(row) > _URL_COLUMN:
-            value = row[_URL_COLUMN].strip().strip('"')
-            if value and value.startswith("http"):
-                yield value
+def parse_phishstats_json(payload: Any) -> Iterator[str]:
+    """Yield the ``url`` field from each PhishStats API result. Pure."""
+    if not isinstance(payload, list):
+        return
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+        url = entry.get("url")
+        if isinstance(url, str) and url.startswith("http"):
+            yield url
 
 
 class PhishStatsAdapter:
-    """Feed adapter for the PhishStats CSV feed."""
+    """Feed adapter for the PhishStats JSON API."""
 
     name = "phishstats"
     kind = "phishstats"
 
     def fetch(self, client: httpx.Client) -> Iterable[str]:
-        text = fetch_first_text(client, FEED_URLS)
-        if not text:
-            return
-        yield from parse_phishstats_csv(text)
+        for page in range(_MAX_PAGES):
+            offset = page * _PAGE_SIZE
+            resp = polite_fetch(
+                client,
+                API_URL,
+                params={
+                    "_sort": "-date",
+                    "_limit": str(_PAGE_SIZE),
+                    "_offset": str(offset),
+                },
+                timeout=30,
+            )
+            if resp is None or resp.status_code != 200:
+                log.warning("phishstats_page_failed", page=page, status=getattr(resp, "status_code", None))
+                break
+
+            try:
+                payload = resp.json()
+            except Exception:  # noqa: BLE001
+                log.warning("phishstats_json_error", page=page)
+                break
+
+            urls = list(parse_phishstats_json(payload))
+            if not urls:
+                break
+
+            log.info("phishstats_page_ok", page=page, count=len(urls))
+            yield from urls
+
+            # Stop early if we got fewer than a full page.
+            if len(urls) < _PAGE_SIZE:
+                break
