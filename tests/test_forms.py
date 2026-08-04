@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from pkintel.takedown.forms import identify_providers, submit_abuse_form
 

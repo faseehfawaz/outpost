@@ -43,7 +43,7 @@ def defang_host(host: str) -> str:
     h = host
     for prefix in ("https://", "http://", "hXXps://", "hXXp://"):
         if h.startswith(prefix):
-            h = h[len(prefix):]
+            h = h[len(prefix) :]
     if "/" in h:
         h = h.split("/", 1)[0]
     return h.replace(".", "[.]")
@@ -64,7 +64,9 @@ def _footer() -> str:
     )
 
 
-def _evidence_lines(host_info: dict[str, Any] | None, kit_summary: dict[str, Any] | None) -> list[str]:
+def _evidence_lines(
+    host_info: dict[str, Any] | None, kit_summary: dict[str, Any] | None
+) -> list[str]:
     """Render factual technical evidence lines."""
     host_info = host_info or {}
     kit_summary = kit_summary or {}
@@ -190,12 +192,7 @@ def gsb_report(url: str) -> tuple[str, str]:
     d_url = defang_url(url)
     cid = _case_id(url)
     subject = f"Safe Browsing Submission [{cid}] - Phishing URL"
-    body = (
-        f"Submission Ref: {cid}\n"
-        f"URL: {d_url}\n"
-        "Type: SOCIAL_ENGINEERING\n"
-        f"{_footer()}"
-    )
+    body = f"Submission Ref: {cid}\nURL: {d_url}\nType: SOCIAL_ENGINEERING\n{_footer()}"
     return subject, body
 
 
@@ -204,9 +201,5 @@ def apwg_report(url: str) -> tuple[str, str]:
     d_url = defang_url(url)
     cid = _case_id(url)
     subject = f"APWG Submission [{cid}] - Phishing URL"
-    body = (
-        f"Submission Ref: {cid}\n"
-        f"URL: {d_url}\n"
-        f"{_footer()}"
-    )
+    body = f"Submission Ref: {cid}\nURL: {d_url}\n{_footer()}"
     return subject, body

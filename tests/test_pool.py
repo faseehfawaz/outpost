@@ -83,9 +83,7 @@ def test_workers_floor_of_one():
 
 def test_counter_is_threadsafe():
     c = Counter()
-    threads = [
-        threading.Thread(target=lambda: [c.incr() for _ in range(1000)]) for _ in range(8)
-    ]
+    threads = [threading.Thread(target=lambda: [c.incr() for _ in range(1000)]) for _ in range(8)]
     for t in threads:
         t.start()
     for t in threads:

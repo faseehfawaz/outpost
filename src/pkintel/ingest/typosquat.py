@@ -42,21 +42,52 @@ from functools import lru_cache
 # so `emirat3snbd`, `emiratesnbd` and `ｅmiratesnbd` all normalise identically.
 HOMOGLYPHS: dict[str, str] = {
     # digit/letter substitutions
-    "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "6": "g", "7": "t", "8": "b", "9": "g",
+    "0": "o",
+    "1": "l",
+    "3": "e",
+    "4": "a",
+    "5": "s",
+    "6": "g",
+    "7": "t",
+    "8": "b",
+    "9": "g",
     "2": "z",
     # Cyrillic lookalikes (the classic IDN attack)
-    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x",
-    "і": "i", "ѕ": "s", "ԁ": "d", "ᴏ": "o", "ɑ": "a",
+    "а": "a",
+    "е": "e",
+    "о": "o",
+    "р": "p",
+    "с": "c",
+    "у": "y",
+    "х": "x",
+    "і": "i",
+    "ѕ": "s",
+    "ԁ": "d",
+    "ᴏ": "o",
+    "ɑ": "a",
     # Greek
-    "α": "a", "ο": "o", "ρ": "p", "ν": "v", "τ": "t",
+    "α": "a",
+    "ο": "o",
+    "ρ": "p",
+    "ν": "v",
+    "τ": "t",
     # fullwidth
-    "ａ": "a", "ｂ": "b", "ｃ": "c", "ｄ": "d", "ｅ": "e", "ｍ": "m", "ｎ": "n",
-    "ｏ": "o", "ｒ": "r", "ｓ": "s", "ｔ": "t",
+    "ａ": "a",
+    "ｂ": "b",
+    "ｃ": "c",
+    "ｄ": "d",
+    "ｅ": "e",
+    "ｍ": "m",
+    "ｎ": "n",
+    "ｏ": "o",
+    "ｒ": "r",
+    "ｓ": "s",
+    "ｔ": "t",
 }
 
 # Multi-character confusables, applied before single-char folding.
 DIGRAPHS: tuple[tuple[str, str], ...] = (
-    ("rn", "m"),   # rn -> m is the single most effective typosquat in practice
+    ("rn", "m"),  # rn -> m is the single most effective typosquat in practice
     ("vv", "w"),
     ("cl", "d"),
     ("nn", "m"),
@@ -70,10 +101,31 @@ MIN_FUZZY_LEN = 5
 # strong corroboration, and on its own upgrades a weak match to a reportable one.
 LURE_TOKENS: frozenset[str] = frozenset(
     {
-        "login", "signin", "secure", "verify", "verification", "account",
-        "update", "confirm", "auth", "online", "banking", "service",
-        "support", "alert", "suspend", "unlock", "recover", "portal",
-        "access", "id", "web", "mobile", "app", "customer", "care",
+        "login",
+        "signin",
+        "secure",
+        "verify",
+        "verification",
+        "account",
+        "update",
+        "confirm",
+        "auth",
+        "online",
+        "banking",
+        "service",
+        "support",
+        "alert",
+        "suspend",
+        "unlock",
+        "recover",
+        "portal",
+        "access",
+        "id",
+        "web",
+        "mobile",
+        "app",
+        "customer",
+        "care",
     }
 )
 

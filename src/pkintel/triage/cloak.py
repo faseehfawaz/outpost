@@ -263,8 +263,7 @@ def detect_cloaking(
                 worst = dist
             if dist >= settings.cloak_diff_threshold:
                 result.reasons.append(
-                    f"{a.label} and {b.label} were served different content "
-                    f"(distance {dist:.2f})"
+                    f"{a.label} and {b.label} were served different content (distance {dist:.2f})"
                 )
             # A status-code split is an even blunter tell than a content diff.
             if a.status != b.status and {a.status, b.status} & {403, 404, 410}:
@@ -278,9 +277,7 @@ def detect_cloaking(
 
                 ha, hb = urlsplit(a.final_url).netloc, urlsplit(b.final_url).netloc
                 if ha and hb and ha != hb:
-                    result.reasons.append(
-                        f"{a.label} was redirected to {ha} but {b.label} to {hb}"
-                    )
+                    result.reasons.append(f"{a.label} was redirected to {ha} but {b.label} to {hb}")
                     worst = max(worst, 0.9)
 
     result.score = round(min(1.0, worst), 3)

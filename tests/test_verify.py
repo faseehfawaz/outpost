@@ -37,7 +37,9 @@ def test_5xx_is_ambiguous_not_dead(status: int):
 
 
 def test_live_phishing_page_is_not_dead():
-    body = "<html><body><form><input type=password name=pin></form>" + ("x" * 500) + "</body></html>"
+    body = (
+        "<html><body><form><input type=password name=pin></form>" + ("x" * 500) + "</body></html>"
+    )
     dead, reason = looks_dead(200, body)
     assert not dead
     assert reason == "still_live"

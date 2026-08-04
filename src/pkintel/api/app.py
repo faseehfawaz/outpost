@@ -148,6 +148,7 @@ async def health_check() -> dict:
 
 # Mount the static frontend last so it serves index.html at root '/'
 from pathlib import Path
+
 from fastapi.staticfiles import StaticFiles
 
 

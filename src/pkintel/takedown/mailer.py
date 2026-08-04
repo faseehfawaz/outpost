@@ -40,7 +40,9 @@ def send_takedown_email(to_address: str, subject: str, body: str) -> str:
         msg["Bcc"] = bcc
     msg.set_content(body)
 
-    log.info("sending_email", to=recipient, bcc=bcc, host=settings.smtp_host, port=settings.smtp_port)
+    log.info(
+        "sending_email", to=recipient, bcc=bcc, host=settings.smtp_host, port=settings.smtp_port
+    )
 
     if settings.smtp_port == 465:
         # SSL

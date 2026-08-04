@@ -47,7 +47,9 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
         contact = (draft.get("contact") or "").strip()
 
         if not contact or "localhost" in contact or "@" not in contact:
-            log.info("No valid abuse contact for takedown %s (%s), marking no_contact", draft_id, contact)
+            log.info(
+                "No valid abuse contact for takedown %s (%s), marking no_contact", draft_id, contact
+            )
             execute("UPDATE takedowns SET status = 'no_contact' WHERE id = %s", (draft_id,))
             continue
 
@@ -66,7 +68,10 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
 
             host_info = {}
             if host:
-                host_rows = fetch_all("SELECT hostname, ip, asn, asn_name, country, registrar, rdap_abuse_email FROM hosts WHERE hostname = %s", (host,))
+                host_rows = fetch_all(
+                    "SELECT hostname, ip, asn, asn_name, country, registrar, rdap_abuse_email FROM hosts WHERE hostname = %s",
+                    (host,),
+                )
                 if host_rows:
                     r = host_rows[0]
                     host_info = {
@@ -84,15 +89,22 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
             if providers and target_url:
                 evidence = build_evidence_package(url_id)
                 for provider_key in providers:
-                    log.info("attempting_form_submission", provider=provider_key, takedown_id=draft_id)
+                    log.info(
+                        "attempting_form_submission", provider=provider_key, takedown_id=draft_id
+                    )
                     success = submit_abuse_form(provider_key, target_url, subject, body, evidence)
                     if success:
                         submitted_via_form = True
                         actual_target = f"form:{provider_key}"
                         new_status = "dry_run" if settings.takedown_dry_run else "sent"
                         # Update target_type to show form submission
-                        execute("UPDATE takedowns SET target_type = %s WHERE id = %s", (f"form:{provider_key}", draft_id))
-                        log.info("form_submission_success", provider=provider_key, takedown_id=draft_id)
+                        execute(
+                            "UPDATE takedowns SET target_type = %s WHERE id = %s",
+                            (f"form:{provider_key}", draft_id),
+                        )
+                        log.info(
+                            "form_submission_success", provider=provider_key, takedown_id=draft_id
+                        )
                         break
 
             # 3. Fallback to SMTP if no form matched or form submission failed
@@ -109,11 +121,19 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
             # 4. Dispatch multi-channel feeds if we are sending live reports
             if new_status == "sent" and target_url:
                 evidence = build_evidence_package(url_id)
-                dispatched = dispatch_all_channels(target_url, notice={"body": body}, evidence=evidence)
-                log.info("multi_channel_dispatch_complete", takedown_id=draft_id, channels=dispatched)
+                dispatched = dispatch_all_channels(
+                    target_url, notice={"body": body}, evidence=evidence
+                )
+                log.info(
+                    "multi_channel_dispatch_complete", takedown_id=draft_id, channels=dispatched
+                )
 
             execute(
-                "UPDATE takedowns SET status = %s, sent_at = now() WHERE id = %s", (new_status, draft_id,)
+                "UPDATE takedowns SET status = %s, sent_at = now() WHERE id = %s",
+                (
+                    new_status,
+                    draft_id,
+                ),
             )
             processed_count += 1
             record_audit("takedown", new_status, actual_target, takedown_id=draft_id)

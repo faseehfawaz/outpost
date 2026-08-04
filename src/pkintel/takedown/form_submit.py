@@ -5,10 +5,15 @@ Automates the submission of phishing URLs to web forms and REST APIs.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 import httpx
-from playwright.sync_api import sync_playwright
+
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None
 
 from pkintel.config import settings
 from pkintel.logging import get_logger
@@ -23,6 +28,10 @@ def submit_via_playwright(form_config: dict[str, Any], target_url: str, body: st
     reporter_email = settings.takedown_from_email or "abuse@heapleap.tech"
 
     log.info("playwright_form_submission_started", provider_url=url, target_url=target_url)
+
+    if sync_playwright is None:
+        log.warning("playwright_not_installed", provider_url=url)
+        return False
 
     try:
         with sync_playwright() as p:
@@ -57,7 +66,7 @@ def submit_via_playwright(form_config: dict[str, Any], target_url: str, body: st
             # Click submit button
             if "submit_selector" in fields:
                 page.wait_for_selector(fields["submit_selector"], timeout=5000)
-                
+
                 # In dry run mode, we do NOT click submit to avoid polluting real endpoints
                 if settings.takedown_dry_run:
                     log.info("dry_run_submit_skipped", provider_url=url)
@@ -66,10 +75,8 @@ def submit_via_playwright(form_config: dict[str, Any], target_url: str, body: st
 
                 page.click(fields["submit_selector"])
                 # Wait for network responses to finish
-                try:
+                with contextlib.suppress(Exception):
                     page.wait_for_load_state("networkidle", timeout=8000)
-                except Exception:
-                    pass
 
             log.info("playwright_form_submission_success", provider_url=url)
             browser.close()
@@ -103,21 +110,23 @@ def submit_via_http_post(form_config: dict[str, Any], target_url: str) -> bool:
             if resp.status_code in (200, 201, 302):
                 log.info("http_post_submission_success", provider_url=url, status=resp.status_code)
                 return True
-            log.warning("http_post_submission_failed_status", provider_url=url, status=resp.status_code)
+            log.warning(
+                "http_post_submission_failed_status", provider_url=url, status=resp.status_code
+            )
             return False
     except Exception as e:
         log.warning("http_post_submission_error", provider_url=url, error=str(e))
         return False
 
 
-def submit_via_api(form_config: dict[str, Any], target_url: str, evidence: dict[str, Any] | None = None) -> bool:
+def submit_via_api(
+    form_config: dict[str, Any], target_url: str, evidence: dict[str, Any] | None = None
+) -> bool:
     """Submit report to API endpoints via JSON payload."""
     url = form_config["url"]
     fields = form_config["fields"]
 
-    payload = {
-        fields["payload_key"]: [{"url": target_url}]
-    }
+    payload = {fields["payload_key"]: [{"url": target_url}]}
 
     log.info("api_submission_started", provider_url=url, target_url=target_url)
 

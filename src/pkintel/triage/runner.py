@@ -218,7 +218,13 @@ def _process_one(
             result.is_phish = True
             result.score = new_score
             result.reasons.append(f"llm_rescue: {llm_res.get('reason', 'LLM verdict')}")
-            log.info("llm_rescued_phish", url=page_url, static_score=outcome.static_score, new_score=new_score, confidence=llm_res.get("confidence"))
+            log.info(
+                "llm_rescued_phish",
+                url=page_url,
+                static_score=outcome.static_score,
+                new_score=new_score,
+                confidence=llm_res.get("confidence"),
+            )
 
     return outcome
 
@@ -280,15 +286,15 @@ def run_once(worker_id: str = "triage-1", limit: int = 500, workers: int | None 
         return _process_one(client, row["url"], priority_brands, priority_lower, brand_refs)
 
     try:
-        for row, outcome, exc in map_concurrent(
-            _work, rows, workers=n_workers, stage="triage"
-        ):
+        for row, outcome, exc in map_concurrent(_work, rows, workers=n_workers, stage="triage"):
             url_id = row["id"]
             if exc is not None:
                 # Per-row isolation preserved: one hostile host cannot abort the batch.
                 log.warning("triage_row_error", url_id=url_id, error=str(exc))
                 err_ids.append((url_id,))
-                audits.append((_ACTOR, "triage_error", str(url_id), json.dumps({"error": str(exc)})))
+                audits.append(
+                    (_ACTOR, "triage_error", str(url_id), json.dumps({"error": str(exc)}))
+                )
                 continue
 
             result = outcome.result

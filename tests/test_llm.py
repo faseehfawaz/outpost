@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pkintel.triage.llm import evaluate_borderline_url
 
 

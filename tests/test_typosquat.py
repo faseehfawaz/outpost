@@ -64,9 +64,9 @@ def test_cyrillic_homoglyph_folds():
         ("emiratesnbd-secure.com", "Emirates NBD"),
         ("emirates-nbd-login.net", "Emirates NBD"),
         ("secure-emiratesnbd.verify.xyz", "Emirates NBD"),
-        ("emirat3snbd.com", "Emirates NBD"),        # homoglyph
+        ("emirat3snbd.com", "Emirates NBD"),  # homoglyph
         ("etisalat-billing.top", "Etisalat"),
-        ("rnashreq-online.com", "Mashreq"),          # rn -> m
+        ("rnashreq-online.com", "Mashreq"),  # rn -> m
         ("uaepass-verify.xyz", "UAE PASS"),
         ("dubaipolice-fine.click", "Dubai Police"),
     ],
@@ -116,10 +116,10 @@ def test_does_not_match_innocent_hosts(matcher: BrandMatcher, host: str):
 @pytest.mark.parametrize(
     "host",
     [
-        "education.com",     # contains 'du'
+        "education.com",  # contains 'du'
         "produce-mart.net",  # contains 'du'
-        "schedule-app.io",   # contains 'du'
-        "duckduckgo.com",    # contains 'du'
+        "schedule-app.io",  # contains 'du'
+        "duckduckgo.com",  # contains 'du'
     ],
 )
 def test_short_brand_does_not_flood(matcher: BrandMatcher, host: str):

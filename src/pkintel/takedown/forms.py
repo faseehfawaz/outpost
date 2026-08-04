@@ -80,12 +80,12 @@ def identify_providers(host_info: dict[str, Any]) -> list[str]:
         List of matching keys in PROVIDER_FORMS.
     """
     matched: list[str] = []
-    
+
     registrar = (host_info.get("registrar") or "").strip().lower()
     asn_name = (host_info.get("asn_name") or "").strip().lower()
     asn = str(host_info.get("asn") or "").strip().lower()
     abuse_email = (host_info.get("abuse_email") or "").strip().lower()
-    
+
     # Extract abuse email domain (e.g. abuse@cloudflare.com -> cloudflare)
     abuse_domain = ""
     if "@" in abuse_email:
@@ -96,17 +96,17 @@ def identify_providers(host_info: dict[str, Any]) -> list[str]:
         keywords = cfg.get("match_keywords", [])
         if not keywords:
             continue
-            
+
         for kw in keywords:
             if (
-                kw in registrar 
-                or kw in asn_name 
-                or kw == f"as{asn}" 
+                kw in registrar
+                or kw in asn_name
+                or kw == f"as{asn}"
                 or (abuse_domain and kw == abuse_domain)
             ):
                 matched.append(key)
                 break
-                
+
     return matched
 
 
@@ -115,7 +115,7 @@ def submit_abuse_form(
     target_url: str,
     subject: str,
     body: str,
-    evidence: dict[str, Any] | None = None
+    evidence: dict[str, Any] | None = None,
 ) -> bool:
     """Submit the abuse report for a provider using its preferred intake method.
 

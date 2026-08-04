@@ -19,7 +19,9 @@ from pkintel.logging import get_logger
 log = get_logger(__name__)
 
 API_FEED_URL = "https://api.stalkphish.io/api/v1/search/last/24h"
-GITHUB_FEED_URL = "https://raw.githubusercontent.com/stalkphish/PhishTrap/master/feeds/phishing_urls.txt"
+GITHUB_FEED_URL = (
+    "https://raw.githubusercontent.com/stalkphish/PhishTrap/master/feeds/phishing_urls.txt"
+)
 
 
 def parse_stalkphish_json(payload: Any) -> Iterator[str]:

@@ -60,7 +60,9 @@ class PhishStatsAdapter:
                 timeout=30,
             )
             if resp is None or resp.status_code != 200:
-                log.warning("phishstats_page_failed", page=page, status=getattr(resp, "status_code", None))
+                log.warning(
+                    "phishstats_page_failed", page=page, status=getattr(resp, "status_code", None)
+                )
                 break
 
             try:

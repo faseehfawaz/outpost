@@ -65,7 +65,7 @@ class Storage:
         primary = Path(settings.local_storage_dir) / key
         if primary.exists():
             return primary
-        
+
         filename = Path(key).name
         base_dir = Path(settings.local_storage_dir)
         # Search for matching legacy zip file in storage dir

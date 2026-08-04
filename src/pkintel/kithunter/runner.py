@@ -6,9 +6,9 @@ architecture.  Each URL spawns ~10 HTTP requests to common archive paths, so
 without concurrency the kithunt stage spends 99% of its time blocked on I/O.
 """
 
+from pkintel.config import settings
 from pkintel.db import claim_rows, execute, record_audit
 from pkintel.kithunter.collect import hunt
-from pkintel.config import settings
 from pkintel.logging import get_logger
 from pkintel.pool import map_concurrent
 

@@ -65,12 +65,12 @@ _ACTOR = "pivot"
 # Evidence weights. A campaign link needs MIN_EDGE_WEIGHT in total, so weak
 # signals must corroborate each other while strong ones stand alone.
 EDGE_WEIGHTS: dict[str, float] = {
-    "shared_cert": 1.0,      # same certificate covers both names — near-conclusive
-    "shared_exfil": 1.0,     # same Telegram bot / Discord webhook — conclusive
-    "shared_ip": 0.7,        # same host, subject to the fan-out cap
-    "shared_favicon": 0.5,   # same (non-generic) favicon hash
-    "shared_registrar": 0.2, # weak alone; meaningful when it corroborates
-    "shared_asn": 0.15,      # weakest — an ASN can hold millions of sites
+    "shared_cert": 1.0,  # same certificate covers both names — near-conclusive
+    "shared_exfil": 1.0,  # same Telegram bot / Discord webhook — conclusive
+    "shared_ip": 0.7,  # same host, subject to the fan-out cap
+    "shared_favicon": 0.5,  # same (non-generic) favicon hash
+    "shared_registrar": 0.2,  # weak alone; meaningful when it corroborates
+    "shared_asn": 0.15,  # weakest — an ASN can hold millions of sites
 }
 
 MIN_EDGE_WEIGHT = 0.7

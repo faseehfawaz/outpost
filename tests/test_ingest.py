@@ -439,11 +439,7 @@ def test_stalkphish_adapter_fallback_on_api_failure(monkeypatch):
 # --------------------------------------------------------------------------- #
 def test_parse_domain_lines():
     sample = (
-        "discord-app.xyz\n"
-        "# comment line\n"
-        "   \n"
-        "https://already-url.com/path\n"
-        "maltrail-bad.org/\n"
+        "discord-app.xyz\n# comment line\n   \nhttps://already-url.com/path\nmaltrail-bad.org/\n"
     )
     assert list(parse_domain_lines(sample)) == [
         "http://discord-app.xyz/",
@@ -580,11 +576,7 @@ def test_parse_community_feed_domain_list():
 
 
 def test_parse_community_feed_url_list():
-    sample = (
-        "# Plain URL list\n"
-        "http://phish-site.org/index.html\n"
-        "https://secure-bank.top/auth\n"
-    )
+    sample = "# Plain URL list\nhttp://phish-site.org/index.html\nhttps://secure-bank.top/auth\n"
     urls = list(parse_community_feed(sample, "url_list"))
     assert urls == [
         "http://phish-site.org/index.html",

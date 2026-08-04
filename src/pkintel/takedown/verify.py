@@ -149,7 +149,7 @@ def _probe(client: httpx.Client, row: dict) -> ProbeResult:
     body = None
     ctype = resp.headers.get("content-type", "").lower()
     if not ctype or any(t in ctype for t in ("html", "text", "xml")):
-        body = resp.content[:64 * 1024].decode(resp.encoding or "utf-8", "replace")
+        body = resp.content[: 64 * 1024].decode(resp.encoding or "utf-8", "replace")
 
     result.dead, result.reason = looks_dead(result.status, body)
     return result
@@ -328,10 +328,14 @@ def _escalate(rows: list[dict]) -> int:
             # Registry/CERT levels reuse the registrar template but address a
             # different recipient; the evidence body is identical.
             if target_type == "registrar":
-                subject, body = registrar_report(row["url"], host_info, {"sha256": None, "count": 0})
+                subject, body = registrar_report(
+                    row["url"], host_info, {"sha256": None, "count": 0}
+                )
                 contact = host_info.get("registrar_abuse_email") or "abuse@localhost"
             else:
-                subject, body = host_abuse_report(row["url"], host_info, {"sha256": None, "count": 0})
+                subject, body = host_abuse_report(
+                    row["url"], host_info, {"sha256": None, "count": 0}
+                )
                 contact = host_info.get("abuse_email") or "abuse@localhost"
 
             subject = f"[ESCALATION {next_level}] {subject}"

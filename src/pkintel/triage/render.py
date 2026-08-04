@@ -347,9 +347,7 @@ def _do_render(url: str, *, save_screenshot: bool = True) -> RenderResult:
         result.title = (page.title() or "")[:300]
         result.html = page.content()
 
-        result.has_password_field = bool(
-            page.query_selector("input[type=password]")
-        )
+        result.has_password_field = bool(page.query_selector("input[type=password]"))
         result.input_count = len(page.query_selector_all("input"))
 
         if save_screenshot:
@@ -401,4 +399,3 @@ def render_page(url: str, *, save_screenshot: bool = True) -> RenderResult:
 
     pool = get_pool()
     return pool.submit_render(url, save_screenshot=save_screenshot)
-

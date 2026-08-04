@@ -157,7 +157,11 @@ def test_the_discovery_scenario():
 
 # --------------------------------------------------------------------------- DN formatting
 def test_format_dn():
-    dn = ((("countryName", "US"),), (("organizationName", "Let's Encrypt"),), (("commonName", "R3"),))
+    dn = (
+        (("countryName", "US"),),
+        (("organizationName", "Let's Encrypt"),),
+        (("commonName", "R3"),),
+    )
     out = format_dn(dn)
     assert "commonName=R3" in out
     assert "organizationName=Let's Encrypt" in out

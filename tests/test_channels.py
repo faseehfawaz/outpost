@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from pkintel.takedown.channels import (
     dispatch_aecert,
     dispatch_all_channels,

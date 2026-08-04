@@ -24,8 +24,8 @@ import httpx
 from pkintel.config import Settings, settings
 from pkintel.db import connection, record_audit
 from pkintel.http import polite_client
-from pkintel.ingest.base import FeedAdapter
 from pkintel.ingest.apwg import CommunityListsAdapter
+from pkintel.ingest.base import FeedAdapter
 from pkintel.ingest.certpl import CertPlAdapter
 from pkintel.ingest.ct import CTAdapter
 from pkintel.ingest.emerging import MaltrailAdapter

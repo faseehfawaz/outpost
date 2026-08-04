@@ -94,6 +94,7 @@ def parse_crtsh_json(payload: Any, slug: str) -> Iterator[str]:
 
 
 import time
+
 from pkintel.logging import get_logger
 
 log = get_logger(__name__)

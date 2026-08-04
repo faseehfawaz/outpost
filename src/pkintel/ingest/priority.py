@@ -68,10 +68,23 @@ CREDENTIAL_PATH_HINTS = (
 
 # TLDs disproportionately represented in phishing (free or near-free registration).
 SUSPICIOUS_TLDS = (
-    ".tk", ".ml", ".ga", ".cf", ".gq",  # Freenom family
-    ".xyz", ".top", ".buzz", ".click", ".link",
-    ".rest", ".cyou", ".icu", ".sbs", ".cfd",
-    ".zip", ".mov",  # confusable with file extensions
+    ".tk",
+    ".ml",
+    ".ga",
+    ".cf",
+    ".gq",  # Freenom family
+    ".xyz",
+    ".top",
+    ".buzz",
+    ".click",
+    ".link",
+    ".rest",
+    ".cyou",
+    ".icu",
+    ".sbs",
+    ".cfd",
+    ".zip",
+    ".mov",  # confusable with file extensions
 )
 
 WEIGHTS = {

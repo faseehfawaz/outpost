@@ -180,9 +180,7 @@ def write_references(refs: list[BrandReference]) -> Path:
             # Filename is the brand, since deep.py uses path.stem as the label.
             (out_dir / f"{ref.brand}.phash").write_text(ref.screenshot_phash)
 
-    favicons = {
-        str(r.favicon_mmh3): r.brand for r in refs if r.favicon_mmh3 is not None
-    }
+    favicons = {str(r.favicon_mmh3): r.brand for r in refs if r.favicon_mmh3 is not None}
     (out_dir / "favicons.json").write_text(json.dumps(favicons, indent=2, sort_keys=True))
 
     (out_dir / "references.json").write_text(

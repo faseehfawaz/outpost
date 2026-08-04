@@ -370,9 +370,7 @@ def test_every_column_reference_exists_somewhere(schema):
             name = col.name.lower()
             if not name or name in all_columns or name in aliases:
                 continue
-            problems.append(
-                f"{path.relative_to(REPO)}:{lineno} column `{name}` exists on no table"
-            )
+            problems.append(f"{path.relative_to(REPO)}:{lineno} column `{name}` exists on no table")
 
     assert not problems, (
         "queries reference columns that exist nowhere in the schema:\n"
@@ -423,9 +421,13 @@ def test_new_migrations_are_idempotent():
             if head.startswith("ALTER TABLE") and "ADD COLUMN" in head:
                 assert "IF NOT EXISTS" in head, f"{name}: non-idempotent ADD COLUMN:\n{stmt[:120]}"
             if head.startswith("CREATE INDEX") or head.startswith("CREATE UNIQUE INDEX"):
-                assert "IF NOT EXISTS" in head, f"{name}: non-idempotent CREATE INDEX:\n{stmt[:120]}"
+                assert "IF NOT EXISTS" in head, (
+                    f"{name}: non-idempotent CREATE INDEX:\n{stmt[:120]}"
+                )
             if head.startswith("CREATE TABLE"):
-                assert "IF NOT EXISTS" in head, f"{name}: non-idempotent CREATE TABLE:\n{stmt[:120]}"
+                assert "IF NOT EXISTS" in head, (
+                    f"{name}: non-idempotent CREATE TABLE:\n{stmt[:120]}"
+                )
 
 
 def test_the_original_telegram_bug_would_be_caught(schema):

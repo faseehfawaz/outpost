@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 
-from pkintel.ingest.base import fetch_first_text, polite_fetch
+from pkintel.ingest.base import fetch_first_text
 from pkintel.logging import get_logger
 
 log = get_logger(__name__)

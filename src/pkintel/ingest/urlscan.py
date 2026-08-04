@@ -27,7 +27,7 @@ SEARCH_URL = "https://urlscan.io/api/v1/search/"
 QUERIES = [
     "task.tags:phishing AND date:>now-7d",
     "verdicts.overall.malicious:true AND date:>now-3d",
-    '(page.domain:*.ae OR page.domain:*.sa) AND task.tags:phishing AND date:>now-30d',
+    "(page.domain:*.ae OR page.domain:*.sa) AND task.tags:phishing AND date:>now-30d",
 ]
 
 _PAGE_SIZE = 200
@@ -80,7 +80,9 @@ class UrlscanAdapter:
                     params["search_after"] = search_after
 
                 try:
-                    resp = polite_fetch(client, SEARCH_URL, params=params, headers=headers, timeout=30)
+                    resp = polite_fetch(
+                        client, SEARCH_URL, params=params, headers=headers, timeout=30
+                    )
                 except Exception as exc:  # noqa: BLE001
                     log.warning("urlscan_request_error", query=query, page=page, error=str(exc))
                     break

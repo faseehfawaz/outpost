@@ -243,9 +243,7 @@ def run_once(worker_id: str = "enrich-1", limit: int = 200, workers: int | None 
     err_params: list[tuple] = []
     results: list[_Enriched] = []
 
-    for row, res, exc in map_concurrent(
-        _enrich_one, rows, workers=n_workers, stage="enrich"
-    ):
+    for row, res, exc in map_concurrent(_enrich_one, rows, workers=n_workers, stage="enrich"):
         if exc is not None:
             log.warning("enrich_row_error", hostname=row.get("hostname"), error=str(exc))
             err_params.append((str(exc)[:500], row["id"]))

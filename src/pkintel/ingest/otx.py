@@ -17,9 +17,7 @@ from pkintel.logging import get_logger
 
 log = get_logger(__name__)
 
-SEARCH_URL = (
-    "https://otx.alienvault.com/api/v1/search/pulses?q=phishing&limit=50&sort=-created"
-)
+SEARCH_URL = "https://otx.alienvault.com/api/v1/search/pulses?q=phishing&limit=50&sort=-created"
 MAX_PAGES = 3
 
 

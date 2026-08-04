@@ -42,7 +42,7 @@ def _parse_hosts_line(line: str) -> str | None:
     if not s or s.startswith("#"):
         return None
     parts = s.split()
-    if len(parts) >= 2 and parts[0] in ("0.0.0.0", "127.0.0.1"):
+    if len(parts) >= 2 and parts[0] in ("0.0.0.0", "127.0.0.1"):  # noqa: S104
         domain = parts[1].strip().rstrip(".")
         if domain and "." in domain and domain != "localhost":
             return domain
