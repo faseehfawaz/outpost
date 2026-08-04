@@ -26,8 +26,7 @@ SEARCH_URL = "https://urlscan.io/api/v1/search/"
 # Multiple targeted queries to maximise coverage, especially GCC/UAE brands.
 QUERIES = [
     "task.tags:phishing AND date:>now-7d",
-    "verdicts.overall.malicious:true AND date:>now-3d",
-    "(page.domain:*.ae OR page.domain:*.sa) AND task.tags:phishing AND date:>now-30d",
+    "(page.domain:*.ae OR page.domain:*.sa OR page.domain:*.qa OR page.domain:*.kw) AND date:>now-30d",
 ]
 
 _PAGE_SIZE = 200
