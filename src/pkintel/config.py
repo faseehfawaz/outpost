@@ -39,7 +39,15 @@ class Settings(BaseSettings):
         description="Postgres DSN. Neon/Supabase free tier in prod.",
     )
     db_pool_min: int = Field(default=1)
-    db_pool_max: int = Field(default=20)
+    # PER PROCESS, not cluster-wide. outpost.target starts 10 stage units plus
+    # the API plus certstream = 12 processes, each with its own pool. At the
+    # previous default of 20 that was a 240-connection ceiling against
+    # `max_connections = 100` in deploy/postgresql.tuned.conf, so under load
+    # callers hit db_pool_timeout_s and stages failed in ways that looked like
+    # network faults. 6 x 12 = 72 leaves headroom for psql and the reaper.
+    # Raise per stage via /opt/heapleap/.env.<stage> if one genuinely needs it,
+    # and raise max_connections to match — or put PgBouncer in front.
+    db_pool_max: int = Field(default=6)
     # Bound both connection establishment and waiting for a pooled connection.
     # Unbounded, an unreachable DB hangs /health and /metrics for the OS TCP
     # timeout, which makes a blip look like a total outage exactly when you are
@@ -113,10 +121,21 @@ class Settings(BaseSettings):
     )
 
     # ---- analyzer (sandbox) ----------------------------------------------
+    # Kit analysis runs in a locked-down container: --network none, --read-only,
+    # --cap-drop ALL, no-new-privileges, plus the bounds below. See
+    # pkintel.analyzer.runner. These settings are load-bearing, not decorative —
+    # they were dead config for a long time while analysis ran on the host.
     analyzer_image: str = Field(default="pkintel-analyzer:latest")
+    # Empty = auto-detect, preferring podman. Podman runs rootless, so the
+    # worker needs no `docker` group membership (which is root-equivalent).
+    analyzer_runtime: str = Field(default="", description="podman | docker | '' to auto-detect")
     analyzer_timeout_s: int = Field(default=120)
     analyzer_mem_limit: str = Field(default="512m")
     analyzer_cpu_limit: str = Field(default="1.0")
+    analyzer_pids_limit: int = Field(default=128, description="fork-bomb guard")
+    analyzer_tmpfs_size: str = Field(
+        default="768m", description="size of the container's only writable mount"
+    )
     analyzer_max_uncompressed_bytes: int = Field(default=500 * 1024 * 1024)
     analyzer_max_files: int = Field(default=20000)
     analyzer_max_deobf_rounds: int = Field(default=25)
@@ -312,7 +331,9 @@ class Settings(BaseSettings):
     smtp_user: str = Field(default="", description="SMTP login username")
     smtp_pass: str = Field(default="", description="SMTP login password / app password")
     smtp_use_tls: bool = Field(default=True)
-    gsb_api_key: str = Field(default="", description="Google Safe Browsing")
+    gsb_api_key: str = Field(default="", description="Google Safe Browsing / Web Risk API key")
+    phishtank_api_key: str = Field(default="", description="PhishTank API key")
+    netcraft_api_key: str = Field(default="", description="Netcraft API key")
 
     # ---- feeds (all optional; empty => adapter is skipped) ----------------
     urlhaus_enabled: bool = Field(default=True)

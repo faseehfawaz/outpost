@@ -85,6 +85,43 @@ def _load_runner(stage: str) -> Callable[..., int]:
     return fn
 
 
+def _start_metrics_server() -> None:
+    """Expose this worker's Prometheus registry, if a port is configured.
+
+    Why this is needed at all
+    ------------------------
+    Prometheus counters live in the process that increments them. Every worker
+    stage carefully records ``stage_duration``, ``urls_processed``,
+    ``deep_rescued``, ``rows_reaped``, ``takedown_time_to_death`` and friends —
+    and every one of those was written into an in-process registry that nothing
+    ever scraped and that vanished when the process exited. Only the API
+    mounted ``/metrics``, and the API runs none of those stages.
+
+    Port comes from ``OUTPOST_METRICS_PORT`` (see deploy/stage-env/*.conf).
+    ``0`` or unset disables the listener, which is what you want for a one-shot
+    ``pkintel run <stage> --once`` on the command line.
+    """
+    import os
+
+    try:
+        port = int(os.environ.get("OUTPOST_METRICS_PORT", "0"))
+    except ValueError:
+        port = 0
+    if port <= 0:
+        return
+
+    try:
+        from prometheus_client import start_http_server
+
+        from pkintel.metrics import register_collectors
+
+        register_collectors()
+        start_http_server(port)
+        log.info("metrics_server_started", port=port)
+    except Exception as exc:  # noqa: BLE001 - never let observability break a stage
+        log.warning("metrics_server_failed", port=port, error=str(exc))
+
+
 def _run_stage_once(stage: str, worker_id: str | None = None) -> int:
     _, limit = STAGES[stage]
     runner = _load_runner(stage)
@@ -278,6 +315,7 @@ def run_all(once: bool = True, loop: bool = False, interval: int = 30) -> None:
         return total
 
     if loop:
+        _start_metrics_server()
         log.info("pipeline_loop_start", interval=interval)
         while True:
             one_pass()
@@ -349,6 +387,9 @@ def refs_list() -> None:
 def _run(stage: str, once: bool, loop: bool, interval: int) -> None:
     configure_logging()
     if loop:
+        # Only long-lived loops get a metrics listener; a one-shot run would
+        # bind a port and exit before anything could scrape it.
+        _start_metrics_server()
         log.info("stage_loop_start", stage=stage, interval=interval)
         while True:
             _run_stage_once(stage)

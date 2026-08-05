@@ -1,21 +1,23 @@
+# DEPRECATED — do not enable.
+#
+# This unit ran `pkintel run all --loop`: every stage sequentially in one
+# process, so a slow stage blocked every stage behind it and the box used one
+# CPU thread out of twelve. It is superseded by the per-stage outpost@*.service
+# units, started as a group via outpost.target.
+#
+#   systemctl disable --now outpost-pipeline.service
+#   systemctl enable  --now outpost.target
+#
+# It is kept only so an existing deployment that still has it enabled gets a
+# clear failure and a pointer, rather than silently running every stage twice
+# alongside the outpost@* units. Conflicts= makes that double-run impossible.
+
 [Unit]
-Description=Outpost Phishing Intelligence Pipeline Worker Daemon
+Description=Outpost pipeline (DEPRECATED — use outpost.target)
 Documentation=https://github.com/faseehfawaz/outpost
-After=network.target postgresql.service docker.service
-Wants=postgresql.service docker.service
+Conflicts=outpost.target
+RefuseManualStart=true
 
 [Service]
-Type=simple
-User=outpost
-Group=outpost
-WorkingDirectory=/opt/heapleap
-EnvironmentFile=/opt/heapleap/.env
-ExecStart=/opt/heapleap/venv/bin/pkintel run all --loop --interval 30
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-LimitNOFILE=65536
-
-[Install]
-WantedBy=multi-user.target
+Type=oneshot
+ExecStart=/usr/bin/false

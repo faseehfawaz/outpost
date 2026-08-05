@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import smtplib
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 
 from pkintel.config import settings
 from pkintel.logging import get_logger
@@ -35,6 +36,9 @@ def send_takedown_email(to_address: str, subject: str, body: str) -> str:
     msg["Subject"] = subject
     msg["From"] = settings.takedown_from_email
     msg["To"] = recipient
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain="heapleap.tech")
+    msg["Reply-To"] = settings.takedown_from_email
     bcc = settings.takedown_bcc_email.strip()
     if bcc:
         msg["Bcc"] = bcc

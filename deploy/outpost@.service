@@ -1,26 +1,39 @@
 # Templated per-stage worker unit.
 #
-# Replaces the single outpost-pipeline.service, which ran
-# `pkintel run all --loop` — all six stages SEQUENTIALLY in one process. That
-# meant a slow stage blocked every stage behind it: a long ingest cycle stalled
-# triage, and a single 200 MB kit download stalled takedowns. It also used one
-# CPU thread out of twelve.
+# Replaces outpost-pipeline.service, which ran `pkintel run all --loop` — every
+# stage SEQUENTIALLY in one process, so a slow stage blocked every stage behind
+# it and the box used one CPU thread out of twelve.
 #
-# Now each stage is its own service, scheduled independently by the kernel:
+# Each stage is now its own service, scheduled independently by the kernel.
+# Start them as a group:
 #
-#   systemctl enable --now outpost@ingest outpost@triage outpost@kithunt \
-#                          outpost@analyze outpost@cluster outpost@takedown \
-#                          outpost@reaper
+#   systemctl enable --now outpost.target
 #
-# Per-stage interval and batch size come from the environment (see below), so a
-# stage can be tuned without touching any other.
+# or individually:
+#
+#   systemctl restart outpost@triage
+#
+# Per-stage interval, batch size and resource limits come from the environment
+# and from drop-ins (see below), so a stage can be tuned without touching any
+# other.
 
 [Unit]
 Description=Outpost pipeline stage: %i
 Documentation=https://github.com/faseehfawaz/outpost
-After=network-online.target postgresql.service docker.service
+After=network-online.target postgresql.service
 Wants=network-online.target postgresql.service
 PartOf=outpost.target
+# Never run alongside the legacy all-in-one unit: it runs these same stages, so
+# both together means every stage executes twice and every victim server sees
+# double the requests.
+Conflicts=outpost-pipeline.service outpost-ct.service
+
+# NOTE: StartLimit* belong in [Unit], not [Service]. They lived in [Service]
+# for a while, where systemd logs "Unknown key name" and silently applies NO
+# rate limiting — the exact crash-loop protection the comment claimed. Verify
+# any edit with:  systemd-analyze verify /etc/systemd/system/outpost@.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
 Type=simple
@@ -33,14 +46,16 @@ EnvironmentFile=/opt/heapleap/.env
 EnvironmentFile=-/opt/heapleap/.env.%i
 Environment=OUTPOST_STAGE=%i
 Environment=OUTPOST_INTERVAL=30
+# Per-stage Prometheus listener. Without this every counter a worker increments
+# (stage_duration, urls_processed, deep_rescued, rows_reaped, ...) is written
+# into an in-process registry that nothing scrapes and that dies with the
+# process. Overridden per stage by the drop-ins in deploy/stage-env/.
+Environment=OUTPOST_METRICS_PORT=0
 
 ExecStart=/opt/heapleap/venv/bin/pkintel run %i --loop --interval ${OUTPOST_INTERVAL}
 
 Restart=always
 RestartSec=10
-# Do not spin forever on a stage that is crash-looping (e.g. bad config).
-StartLimitIntervalSec=300
-StartLimitBurst=10
 
 StandardOutput=journal
 StandardError=journal
@@ -49,9 +64,12 @@ SyslogIdentifier=outpost-%i
 # --- resource limits (12 threads / 32 GB box) ---------------------------------
 # 64+ concurrent sockets per stage plus Chromium needs far more than the default.
 LimitNOFILE=262144
-# Keep any single stage from OOMing the box; the analyzer is the greedy one.
-MemoryMax=8G
-MemoryHigh=6G
+# Default ceiling. 10 stages x 8G was an 80 GB budget on a 32 GB box; the real
+# per-stage figures are set in deploy/stage-env/<stage>.conf drop-ins, which
+# total ~21 GB and leave room for Postgres (8 GB shared_buffers) and the page
+# cache. This value only applies to a stage with no drop-in.
+MemoryMax=2G
+MemoryHigh=1500M
 # Nice the bulk stages so interactive API latency never suffers.
 Nice=5
 IOSchedulingClass=best-effort
@@ -62,13 +80,22 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/heapleap/.storage /opt/heapleap/logs /dev/shm
+# Leading '-' makes a path optional. Without it, a missing directory makes
+# systemd fail to set up the mount namespace and the unit REFUSES TO START —
+# /opt/heapleap/logs is never created by setup-elitedesk.sh, so every stage
+# unit failed at boot. .cache is needed because ProtectSystem=strict makes
+# /opt/heapleap read-only and Playwright writes its browser cache there.
+ReadWritePaths=/opt/heapleap/.storage -/opt/heapleap/logs -/opt/heapleap/.cache /dev/shm
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+ProtectClock=true
+ProtectHostname=true
 
 [Install]
 WantedBy=multi-user.target

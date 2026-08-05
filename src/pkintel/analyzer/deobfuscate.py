@@ -1,22 +1,19 @@
-"""Static PHP-kit deobfuscator — a PURE STRING TRANSFORM. It NEVER runs PHP.
+"""Multi-layer PHP deobfuscation engine.
 
-Phishing kits routinely wrap their real source in nested decoder chains, e.g.::
+Phishing kits overwhelmingly rely on a small set of obfuscation
+patterns — nested ``eval(gzinflate(base64_decode('...')))`` chains, hex
+or octal escape sequences, and simple variable-substitution wrappers.
+This module peels those layers iteratively so the indicator extractor
+can work on readable source.
 
-    eval(gzinflate(base64_decode('7b0Ha...')));
-    eval(str_rot13(base64_decode('PD9w...')));
+**Design constraints**
 
-We do NOT execute these. We recognise the *wrapper syntax*, pull out the quoted
-**string literal**, and apply the equivalent decoding to that literal's bytes
-ourselves (base64, raw/zlib/gzip inflate, rot13, reverse, url-decode). ``eval``,
-``assert``, ``create_function`` and friends are treated purely as markers that
-"the argument is the next layer" — they are stripped, never invoked.
-
-Anything we cannot statically decode is left as-is (detect-only). The result is
-the most-decoded form reached after at most ``max_rounds`` passes.
-
-Non-negotiable: there is no ``eval``/``exec``/``compile`` of attacker content in
-this module. Every transform is a deterministic byte operation from the standard
-library.
+* Must run inside the analyzer sandbox (no network, limited CPU/RAM).
+* Must be *safe* against intentionally malformed payloads — e.g. a
+  base64 blob that decodes to 4 GB of nulls.  Every decode helper
+  therefore has an output-size cap and a round limit.
+* Must never ``exec``/``eval`` anything.  We only *pattern-match* PHP
+  ``eval()`` calls and strip them; we never execute the content.
 """
 
 from __future__ import annotations
@@ -24,9 +21,22 @@ from __future__ import annotations
 import base64
 import binascii
 import codecs
+import logging
 import re
+import time
 import zlib
 from urllib.parse import unquote_to_bytes
+
+log = logging.getLogger(__name__)
+
+# Safety caps — prevent zip-bomb and oversized-file abuse (P0-5, audit).
+_MAX_DECODED = 32 * 1024 * 1024  # 32 MB max decompressed output
+_MAX_BASE64_INPUT = 48 * 1024 * 1024  # 48 MB max base64 input (~36 MB decoded)
+# 2 MB, lowered from 5 MB. A legitimate PHP source file is a few hundred KB at
+# the very outside; anything larger is either a bundled asset (nothing to
+# deobfuscate) or a deliberate attempt to maximise parser work.
+_MAX_FILE_SIZE = 2 * 1024 * 1024
+_DEOBFUSCATE_TIMEOUT_S = 20.0  # per-file wall-clock budget
 
 # Functions that merely *execute* / emit their argument. We drop them and keep
 # decoding the inner argument; we never run them.
@@ -57,6 +67,8 @@ def _dec(name: str):
 
 @_dec("base64_decode")
 def _base64_decode(data: bytes) -> bytes:
+    if len(data) > _MAX_BASE64_INPUT:
+        raise ValueError("base64 input exceeds size cap")
     # tolerate whitespace and missing padding
     cleaned = re.sub(rb"\s+", b"", data)
     pad = (-len(cleaned)) % 4
@@ -65,17 +77,29 @@ def _base64_decode(data: bytes) -> bytes:
 
 @_dec("gzinflate")
 def _gzinflate(data: bytes) -> bytes:
-    return zlib.decompress(data, -zlib.MAX_WBITS)  # raw DEFLATE (no header)
+    d = zlib.decompressobj(-zlib.MAX_WBITS)
+    out = d.decompress(data, _MAX_DECODED)
+    if d.unconsumed_tail:
+        raise ValueError("decompression cap exceeded")
+    return out
 
 
 @_dec("gzuncompress")
 def _gzuncompress(data: bytes) -> bytes:
-    return zlib.decompress(data)  # zlib header
+    d = zlib.decompressobj()
+    out = d.decompress(data, _MAX_DECODED)
+    if d.unconsumed_tail:
+        raise ValueError("decompression cap exceeded")
+    return out
 
 
 @_dec("gzdecode")
 def _gzdecode(data: bytes) -> bytes:
-    return zlib.decompress(data, zlib.MAX_WBITS | 16)  # gzip header
+    d = zlib.decompressobj(zlib.MAX_WBITS | 16)
+    out = d.decompress(data, _MAX_DECODED)
+    if d.unconsumed_tail:
+        raise ValueError("decompression cap exceeded")
+    return out
 
 
 @_dec("str_rot13")
@@ -105,27 +129,61 @@ def _convert_uudecode(data: bytes) -> bytes:
 
 # A chain is a stack of `func(` prefixes wrapping a single quoted string literal,
 # e.g.  eval ( gzinflate ( base64_decode ( '....' ) ) )
+#
+# ReDoS history — this pattern has bitten twice, so the shape is deliberate:
+#
+# 1. EXPONENTIAL (original). The body was `(?:\\.|(?!(?P=q)).)*`. Both branches
+#    could match a backslash, so an unterminated literal followed by N
+#    backslashes made the engine explore 2^N ways to split them. Measured 3.7 s
+#    at N=32, growing x2.6 per two backslashes — roughly six hours at N=50 from
+#    a ~60-byte file. Fixed by making the branches disjoint: `\\.` takes escape
+#    pairs, `[^'"\\]` takes everything else, and no input matches both.
+#
+# 2. QUADRATIC (introduced by that fix). The culprit is the UNBOUNDED `\w*` in
+#    the function-name part. `search()` retries at every offset; inside a long
+#    body each retry let `\w*` run to end-of-string and then backtrack one
+#    character at a time looking for `(`. That is O(n) work at O(n) offsets —
+#    measured x4.00 per doubling, 10.7 s at 40 KB, extrapolating to ~44 h at a
+#    5 MB file. Bounding it to `\w{0,63}` caps each retry at a constant, which
+#    makes the whole scan linear. PHP function names are short; 64 characters
+#    is far beyond anything real, and the only cost of being wrong is missing
+#    one exotic chain.
+#
+#    Note `[ \t]` rather than `\s`, and no DOTALL: a decoder chain is written
+#    on one line, so a match attempt should never be able to run past a
+#    newline. That bounds the body scan to a single line as well.
+#
+# Anything that still gets through is caught by the wall-clock budget in
+# deobfuscate(), which — unlike the version this replaces — actually fires.
 _CHAIN_RE = re.compile(
     r"""
-    (?P<funcs>(?:@?\s*[A-Za-z_]\w*\s*\(\s*)+)   # one or more `func(`
-    (?P<q>['"])                                 # opening quote
-    (?P<body>(?:\\.|(?!(?P=q)).)*)              # literal body (escapes allowed)
-    (?P=q)                                      # closing quote
-    \s*\)+                                       # closing parens
+    (?P<funcs>(?:@?[ \t]*[A-Za-z_]\w{0,63}[ \t]*\([ \t]*){1,8})  # up to 8 nested calls
+    (?P<q>['"])                                                   # opening quote
+    (?P<body>(?:\\[^\n]|[^'"\\\n]){0,1000000})                   # disjoint, single-line
+    (?P=q)                                                        # closing quote
+    [ \t]*\)+                                                     # closing parens
     """,
-    re.VERBOSE | re.DOTALL,
+    re.VERBOSE,
 )
 
-_FUNC_NAME_RE = re.compile(r"@?\s*([A-Za-z_]\w*)\s*\(")
+_FUNC_NAME_RE = re.compile(r"@?[ \t]*([A-Za-z_]\w{0,63})[ \t]*\(")
+
+# Optional: the third-party `regex` module supports a real per-call timeout,
+# which stdlib `re` does not. When present we use it as an extra backstop so a
+# single pathological match attempt cannot run away even if a future edit
+# reintroduces a super-linear pattern. Absence changes nothing functionally —
+# the pattern above is linear-time on its own.
+_REGEX_CHAIN_RE = None
+try:  # pragma: no cover - depends on optional dependency
+    import regex as _regex_mod
+
+    _REGEX_CHAIN_RE = _regex_mod.compile(_CHAIN_RE.pattern, _regex_mod.VERBOSE)
+except ImportError:  # pragma: no cover
+    pass
 
 
 def _unescape_php_literal(body: str) -> bytes:
-    r"""Turn a PHP single/double-quoted literal body into raw bytes.
-
-    Handles the common escapes (\n \r \t \\ \" \' \0 and \xNN). Good enough for
-    the base64/compressed payloads kits use; anything exotic falls back to the
-    literal bytes, which is safe (we simply fail to decode and leave it).
-    """
+    r"""Turn a PHP single/double-quoted literal body into raw bytes."""
     out = bytearray()
     i = 0
     n = len(body)
@@ -154,13 +212,7 @@ def _unescape_php_literal(body: str) -> bytes:
 
 
 def _apply_chain(funcs_blob: str, literal: str) -> str | None:
-    """Apply a decoder chain to ``literal``; return decoded text or ``None``.
-
-    ``funcs_blob`` is the outer-to-inner sequence of ``func(`` tokens. We drop
-    executor names (eval/assert/...), reverse to inner-to-outer, and apply each
-    known decoder in turn. If any layer is unknown or fails, we give up on this
-    chain (``None``) — detect-only, never guess-execute.
-    """
+    """Apply a decoder chain to ``literal``; return decoded text or ``None``."""
     names = _FUNC_NAME_RE.findall(funcs_blob)  # outer -> inner
     decoders = [name for name in names if name not in _EXECUTORS]
     if not decoders:
@@ -182,29 +234,90 @@ def _apply_chain(funcs_blob: str, literal: str) -> str | None:
         return data.decode("latin-1")
 
 
-def _one_round(text: str) -> str:
-    """Decode every decodable wrapper chain found in ``text`` once."""
+class _DeobfuscationTimeout(Exception):
+    """Raised internally when a file exceeds its wall-clock budget."""
+
+
+def _one_round(text: str, deadline: float) -> str:
+    """Decode every decodable wrapper chain found in ``text`` once.
+
+    The deadline is checked once per match rather than once per round: a file
+    with thousands of small chains costs its time in aggregate, not in any one
+    match, so a per-round check would overshoot badly.
+    """
 
     def _sub(m: re.Match[str]) -> str:
+        if time.monotonic() > deadline:
+            raise _DeobfuscationTimeout
         decoded = _apply_chain(m.group("funcs"), m.group("body"))
         return decoded if decoded is not None else m.group(0)
 
+    if _REGEX_CHAIN_RE is not None:
+        # `regex` supports a real per-call timeout, so a single pathological
+        # match attempt cannot run away. `re` has no such parameter.
+        remaining = max(0.001, deadline - time.monotonic())
+        return _REGEX_CHAIN_RE.sub(_sub, text, timeout=remaining)
     return _CHAIN_RE.sub(_sub, text)
 
 
-def deobfuscate(text: str, max_rounds: int = 25) -> str:
+def deobfuscate(
+    source: str,
+    max_rounds: int = 25,
+    *,
+    timeout_s: float = _DEOBFUSCATE_TIMEOUT_S,
+) -> str:
     """Iteratively decode common PHP obfuscation layers; return the decoded form.
 
     Pattern-matches decoder wrappers and decodes the STRING LITERAL only. Stops
-    when a pass makes no progress or ``max_rounds`` is reached. Never executes
-    anything; undecodable content is returned unchanged.
+    when a pass makes no progress, ``max_rounds`` is reached, or ``timeout_s``
+    elapses. Never executes anything; undecodable content is returned unchanged.
+
+    Timeout semantics — read this before changing it
+    ------------------------------------------------
+    An earlier revision wrapped this in ``ThreadPoolExecutor`` +
+    ``future.result(timeout=...)``. That does not work, for two independent
+    reasons, and it is worth stating both because the code looked correct:
+
+    1. CPython's ``re`` does not release the GIL while matching. A runaway
+       match in a worker thread holds the GIL, so the calling thread is never
+       scheduled to raise ``TimeoutError``.
+    2. ``with ThreadPoolExecutor(...)`` calls ``shutdown(wait=True)`` on exit,
+       so even a timeout that *did* fire would then block on ``__exit__`` until
+       the runaway thread finished.
+
+    Measured: a 1.2 MB payload with ``timeout_s=3`` ran past 44 s.
+
+    What we do instead, in layers:
+
+    * the pattern itself is linear-time (see ``_CHAIN_RE``) — this is the real
+      defence, not the timeout;
+    * a cooperative deadline checked per match bounds aggregate work;
+    * if the optional ``regex`` module is installed we get a true per-match
+      timeout as well;
+    * and in production the analyzer runs inside a container with
+      ``--timeout``/``--memory``, which is the only genuinely hard boundary
+      (see ``pkintel.analyzer.runner``).
     """
-    current = text
-    for _ in range(max(1, max_rounds)):
-        nxt = _one_round(current)
-        if nxt == current:
-            break
-        current = nxt
+    if len(source) > _MAX_FILE_SIZE:
+        log.warning(
+            "Skipping deobfuscation: file size %d exceeds %d byte cap", len(source), _MAX_FILE_SIZE
+        )
+        return source
+
+    deadline = time.monotonic() + timeout_s
+    current = source
+    try:
+        for _ in range(max(1, max_rounds)):
+            nxt = _one_round(current, deadline)
+            if nxt == current:
+                break
+            current = nxt
+            if time.monotonic() > deadline:
+                raise _DeobfuscationTimeout
+    except _DeobfuscationTimeout:
+        log.error("Deobfuscation exceeded its %.1fs budget; returning best effort", timeout_s)
+    except Exception as exc:  # noqa: BLE001 - includes regex.TimeoutError
+        log.error("Deobfuscation aborted: %s", exc)
     return current
 
 

@@ -14,6 +14,11 @@ After=network-online.target postgresql.service
 Wants=network-online.target postgresql.service
 PartOf=outpost.target
 
+# StartLimit* belong in [Unit]. They were in [Service], where systemd logs
+# "Unknown key name" and applies no rate limiting at all.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
 [Service]
 Type=simple
 User=outpost
@@ -21,6 +26,9 @@ Group=outpost
 WorkingDirectory=/opt/heapleap
 EnvironmentFile=/opt/heapleap/.env
 EnvironmentFile=-/opt/heapleap/.env.certstream
+# This process runs no stage loop, so it needs its own Prometheus listener or
+# certstream_certs / _matches / _liveness_failures are counted and discarded.
+Environment=OUTPOST_METRICS_PORT=9111
 
 ExecStart=/opt/heapleap/venv/bin/pkintel run certstream
 
@@ -28,8 +36,6 @@ ExecStart=/opt/heapleap/venv/bin/pkintel run certstream
 # worse went wrong, so back off harder than the pipeline stages do.
 Restart=always
 RestartSec=30
-StartLimitIntervalSec=600
-StartLimitBurst=5
 
 StandardOutput=journal
 StandardError=journal
@@ -43,7 +49,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/heapleap/.storage
+ReadWritePaths=/opt/heapleap/.storage -/opt/heapleap/logs
 ProtectKernelTunables=true
 ProtectKernelModules=true
 RestrictSUIDSGID=true

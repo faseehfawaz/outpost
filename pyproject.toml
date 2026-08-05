@@ -3,7 +3,7 @@ name = "pkintel"
 version = "0.1.0"
 description = "Phishing-kit intelligence pipeline: ingest, triage, opportunistic kit collection, static dissection, actor clustering, and takedown."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Faseeh Padinjarathil", email = "security@heapleap.tech" }]
 
@@ -38,6 +38,13 @@ dependencies = [
     # DNS + passive-DNS pivoting: resolve hosts to IPs so sibling phishing sites
     # on the same infrastructure cluster together without needing a kit archive.
     "dnspython>=2.6",
+    # Regex engine with a real `timeout=` parameter, which stdlib `re` does not
+    # have. Used by pkintel.analyzer.deobfuscate as a backstop when matching
+    # attacker-authored PHP: the pattern there is linear-time, but this bounds
+    # a single match attempt even if a future edit reintroduces a
+    # super-linear one. Import is optional at runtime — absence only removes
+    # the backstop.
+    "regex>=2024.5",
 ]
 
 [project.optional-dependencies]
@@ -58,6 +65,20 @@ dev = [
     "mypy>=1.10",
     "respx>=0.21",
     "types-beautifulsoup4",
+    # REQUIRED, not optional. tests/test_schema_consistency.py parses every SQL
+    # literal in the source and validates it against db/migrations without a
+    # database. It used `pytest.importorskip("sqlglot")` while sqlglot was
+    # declared nowhere — so it silently skipped in every run and every CI job,
+    # and a query referencing a non-existent `indicators.created_at` column
+    # shipped and 500'd the public IOC feed. A guard that can skip itself is
+    # not a guard.
+    "sqlglot>=25.0",
+    # Enforces the ReDoS regression tests. Without it @pytest.mark.timeout is
+    # an unknown marker and --strict-markers fails the run, which is the
+    # intended behaviour: those tests are meaningless if they can hang.
+    "pytest-timeout>=2.3",
+    # Exercises the FastAPI routes (see tests/test_api_routes.py).
+    "httpx>=0.27",
 ]
 
 [project.scripts]
@@ -72,7 +93,7 @@ packages = ["src/pkintel"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -91,6 +112,13 @@ ignore = [
     # *concepts* that happen to share a body; merging them makes the intent
     # harder to follow.
     "SIM114",
+    # UP047 rewrites `TypeVar` generics to PEP 695 `def f[T, R](...)`. Valid on
+    # our 3.12 target, but it makes the module unparseable by any older
+    # interpreter — including the ones people reach for when reproducing a bug
+    # or running a quick script against src/ outside the venv. The TypeVar form
+    # is equally correct on 3.12 and costs nothing. Revisit when 3.12 is the
+    # oldest Python anyone plausibly has.
+    "UP047",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -112,4 +140,9 @@ python_version = "3.12"
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 warn_unused_ignores = true
+# P1-11 audit: removed top-level ignore_errors = true so mypy catches real issues.
+# Modules that still need burn-down are overridden below.
+
+[[tool.mypy.overrides]]
+module = ["pkintel.fingerprint.*", "pkintel.takedown.*"]
 ignore_errors = true

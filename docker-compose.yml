@@ -51,14 +51,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # The analyzer worker needs the Docker socket to launch sandbox containers.
-    # Everything else (ingest/triage/kithunt/fingerprint/takedown) does not.
+    # P0-2 audit: removed /var/run/docker.sock mount. The analyzer sandbox
+    # is not yet implemented, and the socket grants root-equivalent access
+    # to the host for zero functionality.
     command: ["pkintel", "run", "all", "--loop"]
     environment:
       PKINTEL_DB_URL: postgresql://pkintel:pkintel@db:5432/pkintel
       PKINTEL_LOG_JSON: "true"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - ./.storage:/app/.storage
     depends_on:
       db:

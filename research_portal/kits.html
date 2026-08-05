@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OUTPOST // Phishing Kit Forensics & Exfiltration Vault</title>
+  <meta name="description" content="Quarantined Phishing Kit Archive Viewer, Static Source Code Analysis, and Indicator Extraction.">
+  <link rel="stylesheet" href="css/research.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="brand-title">
+      <span>OUTPOST</span>
+      <span class="brand-badge">RESEARCH LAB</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link">📡 Live Telemetry</a></li>
+      <li><a href="actors.html" class="nav-link">👾 Threat Actors</a></li>
+      <li><a href="kits.html" class="nav-link active">📦 Kit Forensics</a></li>
+      <li><a href="takedowns.html" class="nav-link">⚖️ Takedown Hub</a></li>
+    </ul>
+
+    <div class="live-indicator">
+      <div class="pulse-dot"></div>
+      <span>QUARANTINE VAULT SECURE</span>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <header class="section-header">
+      <div>
+        <h1 class="section-title">
+          <span style="color: var(--amber-warning)">//</span> Phishing Kit Forensics & Source Vault
+        </h1>
+        <p class="section-subtitle">
+          Quarantined static source code archives, extracted indicators, and exfiltration endpoint decoding
+        </p>
+      </div>
+    </header>
+
+    <!-- Kits Grid -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem">
+
+      <!-- Kit #1 Details -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3 class="panel-title">
+            <span class="badge badge-phish">KIT #1</span>
+            <span>Meta Credentials Harvester</span>
+          </h3>
+          <span class="badge badge-clean">100% ANALYZED</span>
+        </div>
+
+        <div style="margin-bottom: 1rem">
+          <div class="metric-label">Kit SHA-256 Hash</div>
+          <div class="hash-code">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
+        </div>
+
+        <div style="margin-bottom: 1rem">
+          <div class="metric-label">Quarantine Storage Path</div>
+          <div class="hash-code">/opt/heapleap/.storage/kits/quarantine/kit_1.zip</div>
+        </div>
+
+        <div class="metric-label">Extracted Telemetry & Indicators</div>
+        <div class="code-block">
+EXFIL_URL: https://discord.com/api/webhooks/139992... (Fernet Decrypted)
+FILES_PARSED: index.php, send.php, config.php, styles.css
+STEALTH_CHECKS: Cloudflare IP Range Bypass, User-Agent Filter
+        </div>
+      </div>
+
+      <!-- Kit #2 Details -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3 class="panel-title">
+            <span class="badge badge-phish">KIT #2</span>
+            <span>GCC Bank & Emirates NBD Kit</span>
+          </h3>
+          <span class="badge badge-clean">100% ANALYZED</span>
+        </div>
+
+        <div style="margin-bottom: 1rem">
+          <div class="metric-label">Kit SHA-256 Hash</div>
+          <div class="hash-code">8f4e3c9a1b2d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f</div>
+        </div>
+
+        <div style="margin-bottom: 1rem">
+          <div class="metric-label">Quarantine Storage Path</div>
+          <div class="hash-code">/opt/heapleap/.storage/kits/quarantine/kit_2.zip</div>
+        </div>
+
+        <div class="metric-label">Extracted Telemetry & Indicators</div>
+        <div class="code-block">
+EXFIL_URL: https://discord.com/api/webhooks/139992... (Shared Cluster)
+FILES_PARSED: login.php, sms_otp.php, process.php
+TARGET_BRANDS: Emirates NBD, ADCB, RAKBANK
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <p>OUTPOST Security Research Observatory &copy; 2026 // Threat Intelligence Project</p>
+  </footer>
+
+</body>
+</html>

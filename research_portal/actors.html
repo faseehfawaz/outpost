@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OUTPOST // Threat Actor Clustering & Campaign Dossiers</title>
+  <meta name="description" content="Threat Actor Attribution, Exfiltration Endpoint Analysis, and Infrastructure Pivot Graph.">
+  <link rel="stylesheet" href="css/research.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👾</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="brand-title">
+      <span>OUTPOST</span>
+      <span class="brand-badge">RESEARCH LAB</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link">📡 Live Telemetry</a></li>
+      <li><a href="actors.html" class="nav-link active">👾 Threat Actors</a></li>
+      <li><a href="kits.html" class="nav-link">📦 Kit Forensics</a></li>
+      <li><a href="takedowns.html" class="nav-link">⚖️ Takedown Hub</a></li>
+    </ul>
+
+    <div class="live-indicator">
+      <div class="pulse-dot"></div>
+      <span>ACTOR CLUSTERING ACTIVE</span>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <header class="section-header">
+      <div>
+        <h1 class="section-title">
+          <span style="color: var(--purple-accent)">//</span> Threat Actor Dossiers & Infrastructure Clustering
+        </h1>
+        <p class="section-subtitle">
+          Grouped by Fernet-decrypted exfiltration webhooks, author signatures, and infrastructure Jaccard similarity
+        </p>
+      </div>
+    </header>
+
+    <!-- Actor Spotlight Card -->
+    <section class="panel" style="margin-bottom: 2rem; border-color: rgba(139, 92, 246, 0.3)">
+      <div class="panel-header">
+        <h2 class="panel-title">
+          <span class="badge badge-actor">ACTOR #2</span>
+          <span>Discord Exfiltration Campaign Cluster</span>
+        </h2>
+        <span class="hash-code">First Observed: 2026-07-18</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem">
+        <div>
+          <div class="metric-label">Associated Phishing Kits</div>
+          <div style="font-size: 1.3rem; font-weight: 700; color: #fff; font-family: var(--font-mono)">
+            3 Quarantined Archives
+          </div>
+          <div class="metric-subtext">Identical container structure, shared exfil hook</div>
+        </div>
+
+        <div>
+          <div class="metric-label">Primary Target Brands</div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem">
+            <span class="badge badge-brand">Meta / Facebook</span>
+            <span class="badge badge-brand">Microsoft 365</span>
+            <span class="badge badge-brand">Emirates NBD</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="metric-label">Exfiltration Mechanism</div>
+          <div style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--cyan-primary); margin-top: 0.4rem">
+            Encrypted Discord Webhooks (Fernet AES-128)
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">
+# Fernet Decrypted Exfiltration Endpoint Signature
+EXFIL_HOOK: https://discord.com/api/webhooks/13999201.../aHR0c...
+ENCRYPTION_STATUS: Decrypted & Encrypted in DB (Fernet Key)
+INFRASTRUCTURE_PIVOTS: Shared Cloudflare Pages & Vercel Workers
+      </div>
+    </section>
+
+    <!-- Detailed Kits Table under Actor -->
+    <section class="panel">
+      <div class="panel-header">
+        <h3 class="panel-title">Captured Phishing Kits Linked to Actor #2</h3>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Kit SHA-256 Hash</th>
+              <th>Target Brand</th>
+              <th>Collection Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="hash-code">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</td>
+              <td><span class="badge badge-brand">Meta</span></td>
+              <td class="hash-code">2026-07-18 17:28</td>
+              <td><span class="badge badge-clean">ANALYZED</span></td>
+            </tr>
+            <tr>
+              <td class="hash-code">8f4e3c9a1b2d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f</td>
+              <td><span class="badge badge-brand">Microsoft</span></td>
+              <td class="hash-code">2026-07-20 08:32</td>
+              <td><span class="badge badge-clean">ANALYZED</span></td>
+            </tr>
+            <tr>
+              <td class="hash-code">1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b</td>
+              <td><span class="badge badge-brand">Emirates NBD</span></td>
+              <td class="hash-code">2026-07-22 04:08</td>
+              <td><span class="badge badge-clean">ANALYZED</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>OUTPOST Security Research Observatory &copy; 2026 // Threat Intelligence Project</p>
+  </footer>
+
+</body>
+</html>

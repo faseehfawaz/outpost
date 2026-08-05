@@ -4,9 +4,50 @@ global:
     environment: production
 
 scrape_configs:
-  - job_name: 'pkintel_api'
+  # The API. Serves queue depths (via the scrape-time collector in
+  # pkintel.metrics) plus default process metrics.
+  - job_name: 'outpost_api'
     static_configs:
       - targets: ['api:8000']
+
+  # Pipeline workers.
+  #
+  # Each stage is a separate process with a separate Prometheus registry, so a
+  # counter incremented by the triage worker exists ONLY in the triage worker.
+  # Scraping just the API — which is what this file used to do — meant every
+  # stage_duration, urls_processed, deep_rescued, rows_reaped and
+  # takedown_time_to_death sample went into a registry nothing read, and was
+  # discarded at process exit.
+  #
+  # Ports are assigned per stage in deploy/stage-env/<stage>.conf via
+  # OUTPOST_METRICS_PORT, and bound by pkintel.cli.main._start_metrics_server.
+  - job_name: 'outpost_workers'
+    static_configs:
+      - targets: ['localhost:9101']
+        labels: { stage: triage }
+      - targets: ['localhost:9102']
+        labels: { stage: analyze }
+      - targets: ['localhost:9103']
+        labels: { stage: ingest }
+      - targets: ['localhost:9104']
+        labels: { stage: kithunt }
+      - targets: ['localhost:9105']
+        labels: { stage: enrich }
+      - targets: ['localhost:9106']
+        labels: { stage: cluster }
+      - targets: ['localhost:9107']
+        labels: { stage: pivot }
+      - targets: ['localhost:9108']
+        labels: { stage: takedown }
+      - targets: ['localhost:9109']
+        labels: { stage: verify }
+      - targets: ['localhost:9110']
+        labels: { stage: reaper }
+
+  - job_name: 'outpost_certstream'
+    static_configs:
+      - targets: ['localhost:9111']
+        labels: { stage: certstream }
 
   - job_name: 'node_exporter'
     static_configs:

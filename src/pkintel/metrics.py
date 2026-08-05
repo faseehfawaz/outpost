@@ -76,6 +76,21 @@ certstream_matches = Counter(
     ["reason"],
 )
 
+# Defined here, at import time, alongside every other metric — NOT constructed
+# lazily inside the ingestor. A Counter built inside a method raises
+# ValueError("Duplicated timeseries") the second time that method runs against
+# the same registry, and that error is easy to catch too narrowly.
+#
+# This is the alarm for a silently-dead feed. The public certstream
+# aggregators have long outages, and `run_forever()` reconnects so politely
+# that a permanently dead endpoint is indistinguishable from "no lookalike
+# domains today" — a silent zero on the highest-value feed in the platform.
+certstream_liveness_failures = Counter(
+    "outpost_certstream_liveness_failures_total",
+    "Consecutive reporting windows in which the CT firehose delivered zero "
+    "certificates. Non-zero means the feed is dead, not quiet.",
+)
+
 siblings_discovered = Counter(
     "outpost_siblings_discovered_total",
     "New candidate hosts found in the SAN list of an enriched host's certificate.",

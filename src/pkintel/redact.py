@@ -59,12 +59,40 @@ def redact_generic(value: str) -> str:
     return _mask(value, keep_start=4, keep_end=2)
 
 
+def redact_webhook(url: str) -> str:
+    """Keep the provider + workspace identifier, mask the secret path.
+
+    Falling through to :func:`redact_generic` here produced ``http***ij`` — it
+    leaked the last two characters of the secret and told a reader nothing about
+    which platform was involved. An IOC display should identify the channel
+    without being usable as one.
+    """
+    m = re.match(r"^(https://[^/]+/[^/]+/[^/]+)/", url)
+    return f"{m.group(1)}/***" if m else redact_url(url)
+
+
+def redact_api_key(value: str) -> str:
+    """Keep the vendor prefix (``SG.``, ``re_``), mask the rest."""
+    m = re.match(r"^([A-Za-z]{2,3}[._])", value)
+    return f"{m.group(1)}***" if m else _mask(value, keep_start=3)
+
+
 def redact(indicator_type: str, value: str) -> str:
-    """Dispatch to the right redactor for an indicator type."""
+    """Dispatch to the right redactor for an indicator type.
+
+    Anything not listed falls through to :func:`redact_generic`, which is safe
+    but uninformative — add an entry when you add an IndicatorType.
+    """
     return {
         "telegram_token": redact_telegram_token,
         "telegram_chat": lambda v: _mask(v, keep_start=3),
         "discord_webhook": redact_discord_webhook,
+        "slack_webhook": redact_webhook,
+        "teams_webhook": redact_webhook,
+        "sendgrid_key": redact_api_key,
+        "resend_key": redact_api_key,
+        "firebase": redact_url,
+        "supabase": redact_url,
         "email": redact_email,
         "smtp": redact_generic,
         "url": redact_url,

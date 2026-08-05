@@ -44,6 +44,7 @@ _SEED_SQL = """
     SELECT DISTINCT u.host
     FROM urls u
     WHERE u.is_phish = true AND u.host <> ''
+      AND u.triaged_at > now() - interval '1 hour'
     ON CONFLICT (hostname) DO NOTHING
 """
 
@@ -135,27 +136,37 @@ def _seed_and_rearm() -> None:
         log.warning("enrich_seed_failed", error=str(exc))
 
 
-def _favicon_for(hostname: str) -> int | None:
-    """Carry the triage favicon hash onto the host row for pivoting.
+def _favicons_for(hostnames: list[str]) -> dict[str, int]:
+    """Carry triage favicon hashes onto the host rows for pivoting.
 
     ``urls.favicon_mmh3`` is already populated by triage; copying it here means
     the pivot's ``shared_favicon`` edge works off a single table.
+
+    One query for the whole batch. This was previously called per host inside
+    the result loop, and every call opened its own pooled connection and its own
+    transaction — 200 hosts meant 200 connection checkouts to fetch 200 integers.
+    ``DISTINCT ON (host)`` with the same ordering gives the identical
+    most-recently-triaged value per host.
     """
-    from pkintel.db import fetch_one
+    if not hostnames:
+        return {}
+
+    from pkintel.db import fetch_all
 
     try:
-        row = fetch_one(
+        rows = fetch_all(
             """
-            SELECT favicon_mmh3 FROM urls
-            WHERE host = %s AND favicon_mmh3 IS NOT NULL
-            ORDER BY triaged_at DESC NULLS LAST
-            LIMIT 1
+            SELECT DISTINCT ON (host) host, favicon_mmh3
+            FROM urls
+            WHERE host = ANY(%s) AND favicon_mmh3 IS NOT NULL
+            ORDER BY host, triaged_at DESC NULLS LAST
             """,
-            (hostname,),
+            (hostnames,),
         )
-    except Exception:  # noqa: BLE001
-        return None
-    return row["favicon_mmh3"] if row else None
+    except Exception as exc:  # noqa: BLE001 - a missing favicon is not fatal
+        log.warning("enrich_favicon_lookup_failed", error=str(exc))
+        return {}
+    return {r["host"]: r["favicon_mmh3"] for r in rows}
 
 
 def _discover_from_sans(results: list[_Enriched]) -> int:
@@ -243,6 +254,9 @@ def run_once(worker_id: str = "enrich-1", limit: int = 200, workers: int | None 
     err_params: list[tuple] = []
     results: list[_Enriched] = []
 
+    # One lookup for the whole batch, before the loop — not one per host inside it.
+    favicons = _favicons_for([r["hostname"] for r in rows if r.get("hostname")])
+
     for row, res, exc in map_concurrent(_enrich_one, rows, workers=n_workers, stage="enrich"):
         if exc is not None:
             log.warning("enrich_row_error", hostname=row.get("hostname"), error=str(exc))
@@ -269,7 +283,7 @@ def run_once(worker_id: str = "enrich-1", limit: int = 200, workers: int | None 
                 "cert_not_before": cert.not_before if cert else None,
                 "cert_not_after": cert.not_after if cert else None,
                 "nameservers": dns.nameservers,
-                "favicon_mmh3": _favicon_for(row["hostname"]),
+                "favicon_mmh3": favicons.get(row["hostname"]),
                 "enrich_error": (dns.error or (cert.error if cert else None)),
             }
         )

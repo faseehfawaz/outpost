@@ -22,8 +22,14 @@ run: ## Run every pipeline stage once
 api: ## Serve the public API on :8000
 	uvicorn pkintel.api.app:app --reload --port 8000
 
-analyzer-image: ## Build the hardened analyzer sandbox image
-	docker build -t pkintel-analyzer:latest -f analyzer_container/Dockerfile .
+analyzer-image: ## Build the hardened analyzer sandbox image (podman preferred)
+	@RUNTIME=$$(command -v podman || command -v docker) ; \
+	if [ -z "$$RUNTIME" ]; then \
+	  echo "ERROR: neither podman nor docker found. The analyzer stage cannot run without this image." ; \
+	  exit 1 ; \
+	fi ; \
+	echo "Building with $$RUNTIME ..." ; \
+	$$RUNTIME build -t pkintel-analyzer:latest -f analyzer_container/Dockerfile .
 
 test: ## Run the test suite
 	pytest

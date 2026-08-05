@@ -28,7 +28,7 @@ def _hunt_one(url_row: dict) -> str:
     # We only hunt URLs that are confirmed phish and have been triaged
     if not url_row.get("is_phish") or url_row.get("triage_state") != "triaged":
         execute(
-            "UPDATE urls SET kithunt_state = 'skipped', kithunt_at = now() WHERE id = %s",
+            "UPDATE urls SET kithunt_state = 'skipped', kithunt_at = now(), locked_by = NULL, locked_at = NULL WHERE id = %s",
             (url_id,),
         )
         return "skipped"
@@ -44,7 +44,9 @@ def _hunt_one(url_row: dict) -> str:
             UPDATE urls 
             SET kithunt_state = %s, 
                 kithunt_attempts = %s, 
-                kithunt_at = now() 
+                kithunt_at = now(),
+                locked_by = NULL,
+                locked_at = NULL
             WHERE id = %s
             """,
             (new_state, attempts, url_id),
@@ -67,7 +69,7 @@ def _hunt_one(url_row: dict) -> str:
     except Exception as e:
         log.exception("Error during kit hunt for URL ID %s: %s", url_id, e)
         execute(
-            "UPDATE urls SET kithunt_state = 'error', kithunt_at = now() WHERE id = %s",
+            "UPDATE urls SET kithunt_state = 'error', kithunt_at = now(), locked_by = NULL, locked_at = NULL WHERE id = %s",
             (url_id,),
         )
         record_audit(_ACTOR, "kithunt_error", target=str(url_id), error=str(e))
@@ -88,6 +90,7 @@ def run_once(worker_id: str = "kithunt-1", limit: int = 50) -> int:
         busy_value="hunting",
         worker_id=worker_id,
         limit=limit,
+        extra_where="is_phish = true AND triage_state = 'triaged'",
     )
     if not urls:
         return 0

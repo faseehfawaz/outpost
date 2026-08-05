@@ -55,10 +55,11 @@ Those exfil channels are then hashed, clustered against every other kit we have 
  ACTOR GRAPH              KIT HUNTER              ANALYZER SANDBOX
  ┌──────────────┐          ┌──────────────┐       ┌──────────────────┐
  │ Cluster by   │          │ Open dir?    │       │ --network none   │
- │ fingerprint  │◀─────────│ *.zip probe  │──────▶│ non-root user    │
- │ & token hash │          │ Log files    │       │ read-only fs     │
- │ → Actor card │          └──────────────┘       │ static PHP read  │
- └──────┬───────┘                                 └──────────────────┘
+ │ fingerprint  │◀─────────│ *.zip probe  │──────▶│ --read-only      │
+ │ & token hash │          │ Log files    │       │ --cap-drop ALL   │
+ │ → Actor card │          └──────────────┘       │ mem/cpu/pid caps │
+ └──────┬───────┘                                 │ static PHP read  │
+        │                                         └──────────────────┘
         │
         ▼
  TAKEDOWN ENGINE           DASHBOARD               IOC FEED
@@ -85,7 +86,9 @@ Each subsystem is independently runnable and has its own test coverage. They sha
 
 **`03 · Kit Hunter`** — For confirmed phishing URLs, walks up the directory tree looking for exposed kit archives. It checks a short, fixed list of names — no fuzzing, no wordlists. If it finds a `.zip`, it checks the file magic, downloads it, stores it in Cloudflare R2, and records the SHA256.
 
-**`04 · Analyzer`** — Extracts the archive inside a hardened Docker container (`--network none`, non-root, read-only filesystem, 30-second timeout). Reads every PHP file statically to extract exfiltration channels (Telegram tokens, Discord webhooks, SMTP credentials, exfil URLs). Computes a normalized token hash per file — stable across trivial obfuscation and variable renaming — using TLSH for fuzzy similarity.
+**`04 · Analyzer`** — Extracts the archive inside a hardened container, launched per kit by `pkintel.analyzer.runner` under rootless Podman (or Docker): `--network none`, `--read-only`, `--cap-drop ALL`, `no-new-privileges`, non-root user, a single `noexec` tmpfs, plus memory, CPU, pids and wall-clock bounds (`PKINTEL_ANALYZER_*`). The image carries no database driver and no credentials, so a compromise has nothing to steal and nowhere to send it. Reads every PHP file statically to extract exfiltration channels (Telegram, Discord, Slack, Teams, SendGrid, Resend, Firebase, Supabase, SMTP, exfil URLs). Computes a normalized token hash per file — stable across trivial obfuscation and variable renaming — using TLSH for fuzzy similarity.
+
+> The static guards inside that container — zip-slip and symlink rejection, file-count and uncompressed-size caps, a 32 MB decompression cap, a linear-time deobfuscation pattern and a per-file wall-clock budget — are defence in depth. The container is the boundary.
 
 **`05 · Fingerprint & Takedown`** — Clusters kits by Jaccard similarity on their file-hash sets and by shared exfil tokens. Generates actor profiles. Drafts and sends abuse reports to the hosting provider, domain registrar, and platform (Telegram, Google Safe Browsing, APWG eCrime Exchange).
 
@@ -239,7 +242,7 @@ This is a **passive research tool**. Five hard rules are enforced in code, not j
 
 | Rule | How it is enforced |
 |------|--------------------|
-| Never execute a kit | Analyzer runs in `--network none` container, pure static reads only |
+| Never execute a kit | `analyzer/runner.py` launches every kit in a `--network none --read-only --cap-drop ALL` container; pure static reads, `pytest` asserts the flags |
 | Never use an extracted token | No code path makes outbound requests to extracted indicators |
 | Never retain victim credentials | Kit hunter stores only SHA256 + byte count of log files, then deletes |
 | Redact publicly | `redact.py` is the single path from raw value to any public-facing string |

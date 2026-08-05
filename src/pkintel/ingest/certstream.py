@@ -103,6 +103,7 @@ class CertstreamIngestor:
         self._source_id: int | None = None
         self.stats = {"certs": 0, "names": 0, "matched": 0, "inserted": 0}
         self._last_report = time.monotonic()
+        self._consecutive_zeros = 0
 
     # -- persistence -------------------------------------------------------
     def _get_source_id(self) -> int:
@@ -184,6 +185,30 @@ class CertstreamIngestor:
         if now - self._last_report < every_s:
             return
         elapsed = now - self._last_report
+
+        if self.stats["certs"] == 0:
+            self._consecutive_zeros += 1
+            if self._consecutive_zeros >= 2:
+                log.error(
+                    "certstream_liveness_alarm",
+                    consecutive_zeros=self._consecutive_zeros,
+                    url=settings.certstream_url,
+                    detail=(
+                        "CT firehose delivered zero certificates for two consecutive "
+                        "windows. The stream is dead, not quiet — the public "
+                        "aggregators have long outages. Consider self-hosting "
+                        "certstream-server-go and pointing PKINTEL_CERTSTREAM_URL at it."
+                    ),
+                )
+                try:
+                    from pkintel.metrics import certstream_liveness_failures
+
+                    certstream_liveness_failures.inc()
+                except Exception:  # noqa: BLE001, S110 - metrics must never break the stream
+                    pass
+        else:
+            self._consecutive_zeros = 0
+
         log.info(
             "certstream_stats",
             certs_per_s=round(self.stats["certs"] / elapsed, 1),
@@ -247,5 +272,14 @@ def main() -> None:
     if not settings.certstream_enabled:
         log.info("certstream_disabled")
         return
+
+    # This process never runs a stage loop, so it needs its own listener —
+    # otherwise certstream_certs / _matches / _liveness_failures are counted and
+    # then thrown away. Port from OUTPOST_METRICS_PORT (9111 by convention; see
+    # deploy/outpost-certstream.service and ops/prometheus.yml).
+    from pkintel.cli.main import _start_metrics_server
+
+    _start_metrics_server()
+
     with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(run_forever())

@@ -10,6 +10,9 @@ from pkintel.takedown.channels import (
 )
 
 
+@patch("pkintel.config.settings.gsb_api_key", "test_gsb_key")
+@patch("pkintel.config.settings.phishtank_api_key", "test_pt_key")
+@patch("pkintel.config.settings.netcraft_api_key", "test_nc_key")
 @patch("pkintel.takedown.channels.httpx.Client.post")
 @patch("pkintel.takedown.channels.send_takedown_email")
 def test_individual_dispatchers(mock_send_email, mock_post):
@@ -21,10 +24,13 @@ def test_individual_dispatchers(mock_send_email, mock_post):
     assert dispatch_safe_browsing(url) is True
     assert dispatch_phishtank(url) is True
     assert dispatch_netcraft(url) is True
-    assert dispatch_aecert(url, "Notice body") is True
+    assert dispatch_aecert(url, "Notice body") is False  # aeCERT direct email is disabled
     assert dispatch_apwg(url, {"attachments": []}) is True
 
 
+@patch("pkintel.config.settings.gsb_api_key", "test_gsb_key")
+@patch("pkintel.config.settings.phishtank_api_key", "test_pt_key")
+@patch("pkintel.config.settings.netcraft_api_key", "test_nc_key")
 @patch("pkintel.takedown.channels.httpx.Client.post")
 @patch("pkintel.takedown.channels.send_takedown_email")
 def test_dispatch_all_channels(mock_send_email, mock_post):
@@ -41,4 +47,4 @@ def test_dispatch_all_channels(mock_send_email, mock_post):
     assert "phishtank" in channels
     assert "apwg" in channels
     assert "netcraft" in channels
-    assert "aecert" in channels
+    assert "aecert" not in channels  # aeCERT direct email is disabled

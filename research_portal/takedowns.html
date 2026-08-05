@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OUTPOST // Abuse Escalation & Takedown Verification Hub</title>
+  <meta name="description" content="Multi-channel Abuse Dispatcher, Defanged Notices, and Takedown Lifecycle Tracker.">
+  <link rel="stylesheet" href="css/research.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="brand-title">
+      <span>OUTPOST</span>
+      <span class="brand-badge">RESEARCH LAB</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link">📡 Live Telemetry</a></li>
+      <li><a href="actors.html" class="nav-link">👾 Threat Actors</a></li>
+      <li><a href="kits.html" class="nav-link">📦 Kit Forensics</a></li>
+      <li><a href="takedowns.html" class="nav-link active">⚖️ Takedown Hub</a></li>
+    </ul>
+
+    <div class="live-indicator">
+      <div class="pulse-dot"></div>
+      <span>TAKEDOWN DISPATCHER READY</span>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <header class="section-header">
+      <div>
+        <h1 class="section-title">
+          <span style="color: var(--cyan-primary)">//</span> Abuse Escalation & Takedown Verification Hub
+        </h1>
+        <p class="section-subtitle">
+          RDAP abuse contact resolution, defanged email generation, and multi-channel API dispatchers
+        </p>
+      </div>
+    </header>
+
+    <!-- Takedown Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Confirmed Takedowns</div>
+        <div class="metric-value" style="color: var(--green-success)">4</div>
+        <div class="metric-subtext">Vercel, Hetzner, Infomaniak</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Active Tickets</div>
+        <div class="metric-value" style="color: var(--amber-warning)">5</div>
+        <div class="metric-subtext">Aliyun, Comlaude, Regtons</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Webform Redirects</div>
+        <div class="metric-value" style="color: var(--blue-accent)">19</div>
+        <div class="metric-subtext">AWS, Google Cloud, Dynadot</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Defanging Standard</div>
+        <div class="metric-value" style="font-size: 1.1rem; color: var(--cyan-primary)">hXXps:// & Base64</div>
+        <div class="metric-subtext">Spam-filter compliant formatting</div>
+      </div>
+    </div>
+
+    <!-- Live Takedowns Log Table -->
+    <section class="panel" style="margin-bottom: 2rem">
+      <div class="panel-header">
+        <h3 class="panel-title">Outbound Takedown Dispatch Log</h3>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Abuse Contact</th>
+              <th>Target Type</th>
+              <th>Status</th>
+              <th>Dispatch Date</th>
+            </tr>
+          </thead>
+          <tbody id="takedowns-body">
+            <!-- Dynamically populated from JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Defanged Email Preview Panel -->
+    <section class="panel">
+      <div class="panel-header">
+        <h3 class="panel-title">Sample Defanged Abuse Report Template</h3>
+      </div>
+      <div class="code-block">
+Subject: [URGENT ABUSE] Phishing Site Targeting Emirates NBD - hXXps://domain[.]com/login
+
+Abuse Desk / Security Operations Center,
+
+Our autonomous threat observatory (OUTPOST) has detected an active phishing site hosted on your network.
+
+DEFANGED TARGET DETAILS:
+- Defanged URL: hXXps://get-instant-loan-online[.]vercel[.]app/dubai-police
+- Targeted Institution: Emirates NBD / Dubai Police
+- Base64 Encoded Target URL: aHR0cHM6Ly9nZXQtaW5zdGFudC1sb2FuLW9ubGluZS52ZXJjZWwuYXBwL2R1YmFpLXBvbGljZQ==
+- Exfiltration Signature: Discord Webhook (Fernet Encrypted)
+
+EVIDENCE PACKAGE:
+- SHA-256 Screenshot Hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4...
+- DOM Fingerprint: Form POST action pointing to exfiltration endpoint
+
+Please disable this resource immediately to protect users.
+
+Regards,
+OUTPOST Threat Intelligence Research Team
+security@heapleap.tech
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>OUTPOST Security Research Observatory &copy; 2026 // Threat Intelligence Project</p>
+  </footer>
+
+  <script src="js/research.js"></script>
+</body>
+</html>

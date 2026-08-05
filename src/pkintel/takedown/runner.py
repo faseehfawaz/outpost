@@ -180,7 +180,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
 
             # 1. Host Abuse Report
             h_sub, h_body = host_abuse_report(url, host_info, kit_summary)
-            h_contact = host_info.get("abuse_email", "abuse@localhost")
+            h_contact = host_info.get("abuse_email") or "abuse@localhost"
             execute(
                 """
                 INSERT INTO takedowns (url_id, kit_id, target_type, contact, subject, body, status)
@@ -192,7 +192,7 @@ def run_once(worker_id: str = "takedown-1", limit: int = 50) -> int:
 
             # 2. Registrar Abuse Report
             r_sub, r_body = registrar_report(url, host_info, kit_summary)
-            r_contact = host_info.get("registrar_abuse_email", "abuse@localhost")
+            r_contact = host_info.get("registrar_abuse_email") or "abuse@localhost"
             execute(
                 """
                 INSERT INTO takedowns (url_id, kit_id, target_type, contact, subject, body, status)

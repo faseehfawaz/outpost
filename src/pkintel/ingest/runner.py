@@ -131,16 +131,29 @@ def _insert_candidates(
 
     ``xmax = 0`` is true only for a freshly inserted row, so it distinguishes a
     brand-new URL from a re-seen one whose ``last_seen`` we just bumped.
+
+    Batched via ``executemany(returning=True)``. This used to be one
+    ``cur.execute`` per URL inside a Python loop: 15 adapters x up to 2000 URLs
+    is ~30,000 round trips per cycle, all inside a single transaction held open
+    for the duration. psycopg3 pipelines the batch into one round trip and
+    ``nextset()`` walks the per-row RETURNING results.
     """
+    if not candidates:
+        return 0, 0
+
+    rows = [(canon, h, host, source_id) for canon, h, host in candidates]
+    cur.executemany(_INSERT_SQL, rows, returning=True)
+
     new = 0
     seen = 0
-    for canon, h, host in candidates:
-        cur.execute(_INSERT_SQL, (canon, h, host, source_id))
+    while True:
         row = cur.fetchone()
         if row and row.get("inserted"):
             new += 1
         else:
             seen += 1
+        if not cur.nextset():
+            break
     return new, seen
 
 

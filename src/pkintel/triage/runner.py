@@ -54,6 +54,7 @@ _UPDATE_TRIAGED = """
         screenshot_phash = %(screenshot_phash)s,
         cloaking_score  = %(cloaking_score)s,
         exfil_endpoints = %(exfil_endpoints)s::jsonb,
+        llm_verdict     = %(llm_verdict)s::jsonb,
         triaged_at      = now(),
         kithunt_state   = %(kithunt_state)s,
         locked_by       = NULL,
@@ -80,6 +81,7 @@ class TriageOutcome:
     screenshot_phash: str | None = None
     cloaking_score: float | None = None
     exfil_endpoints: list[str] = dc_field(default_factory=list)
+    llm_verdict: dict | None = None
 
 
 def _load_brand_references() -> list[BrandScreenshot]:
@@ -213,6 +215,7 @@ def _process_one(
     # --- local LLM tie-breaker gate (Ollama) -------------------------------
     if settings.llm_enabled and settings.llm_band_low <= result.score <= settings.llm_band_high:
         llm_res = evaluate_borderline_url(page_url, html, result.score)
+        outcome.llm_verdict = llm_res
         if llm_res.get("is_phishing") and llm_res.get("confidence", 0.0) >= 0.7:
             new_score = max(result.score, settings.triage_phish_threshold + 5)
             result.is_phish = True
@@ -328,6 +331,7 @@ def run_once(worker_id: str = "triage-1", limit: int = 500, workers: int | None 
                     "screenshot_phash": outcome.screenshot_phash,
                     "cloaking_score": outcome.cloaking_score,
                     "exfil_endpoints": json.dumps(outcome.exfil_endpoints),
+                    "llm_verdict": json.dumps(outcome.llm_verdict) if outcome.llm_verdict else None,
                     "kithunt_state": "pending" if result.is_phish else "skipped",
                 }
             )

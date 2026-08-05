@@ -46,6 +46,7 @@ about 2-4 GB and removes the disk from the hot path entirely.
 from __future__ import annotations
 
 import contextlib
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -76,6 +77,45 @@ _EXFIL_HINTS = (
     "/submit.php",
     "formspree.io",
     "webhook.site",
+)
+
+# P2-29 audit: domains that commonly POST off-origin on legitimate pages
+# (analytics, error tracking, consent, etc.). Filtering these out reduces
+# false-positive exfil detection significantly.
+_BENIGN_POST_DOMAINS = frozenset(
+    {
+        "www.google-analytics.com",
+        "analytics.google.com",
+        "www.googletagmanager.com",
+        "stats.g.doubleclick.net",
+        "o.ingest.sentry.io",
+        "sentry.io",
+        "www.facebook.com",
+        "connect.facebook.net",
+        "graph.facebook.com",
+        "pixel.facebook.com",
+        "script.hotjar.com",
+        "vars.hotjar.com",
+        "in.hotjar.com",
+        "cdn.cookielaw.org",
+        "consent.cookiebot.com",
+        "bat.bing.com",
+        "ct.pinterest.com",
+        "snap.licdn.com",
+        "px.ads.linkedin.com",
+        "www.clarity.ms",
+        "api.segment.io",
+        "cdn.segment.com",
+        "api.amplitude.com",
+        "heapanalytics.com",
+        "cdn.heapanalytics.com",
+        "rs.fullstory.com",
+        "api.mixpanel.com",
+        "api-js.mixpanel.com",
+        "plausible.io",
+        "cdn.lr-in-prod.com",
+        "r.lr-ingest.io",
+    }
 )
 
 
@@ -143,7 +183,24 @@ def _get_launch_kwargs() -> dict:
     launch_kwargs: dict = {
         "headless": True,
         "args": [
-            "--no-sandbox",
+            # NOTE: --no-sandbox is deliberately ABSENT.
+            #
+            # This pool navigates to live attacker infrastructure and executes
+            # its JavaScript. Chromium's renderer sandbox (seccomp-bpf + user
+            # namespaces) is what turns a V8/Blink memory-safety bug into a
+            # contained renderer crash instead of code execution as the
+            # `outpost` user — which holds the DB credentials, the SMTP
+            # password and the indicator encryption key.
+            #
+            # --no-sandbox is normally added to make Chromium run *inside* a
+            # container. This pool runs on the host, so it was pure downside.
+            #
+            # If Chromium fails to launch on Arch with "No usable sandbox", the
+            # cause is unprivileged user namespaces being disabled. Fix that,
+            # not this:
+            #     sysctl -w kernel.unprivileged_userns_clone=1
+            #     echo 'kernel.unprivileged_userns_clone=1' \
+            #       > /etc/sysctl.d/99-userns.conf
             "--disable-dev-shm-usage",
             "--disable-gpu",
             "--disable-background-networking",
@@ -156,6 +213,7 @@ def _get_launch_kwargs() -> dict:
             "--disk-cache-size=134217728",
         ],
         "env": {
+            **os.environ,
             "CHROME_CRASHPAD_PIPE_NAME": "",
         },
     }
@@ -169,6 +227,18 @@ def _ensure_thread_browser():
     """Return a Playwright Browser owned by the current thread, or None."""
     browser = getattr(_tls, "browser", None)
     if browser is not None:
+        _tls.render_count = getattr(_tls, "render_count", 0) + 1
+        if _tls.render_count >= 500:
+            with contextlib.suppress(Exception):
+                browser.close()
+            if getattr(_tls, "playwright", None) is not None:
+                with contextlib.suppress(Exception):
+                    _tls.playwright.stop()
+            browser = None
+            _tls.browser = None
+            _tls.playwright = None
+
+    if browser is not None:
         return browser
 
     try:
@@ -178,6 +248,7 @@ def _ensure_thread_browser():
         browser = pw.chromium.launch(**_get_launch_kwargs())
         _tls.playwright = pw
         _tls.browser = browser
+        _tls.render_count = 0
         log.info(
             "render_thread_browser_started",
             thread=threading.current_thread().name,
@@ -315,8 +386,11 @@ def _do_render(url: str, *, save_screenshot: bool = True) -> RenderResult:
                 if host and host != origin_host:
                     network_hosts.add(host)
                 lowered = request.url.lower()
+                # P2-29: skip known analytics/telemetry domains to reduce
+                # false-positive exfil flags from GA, Sentry, FB Pixel, etc.
                 if request.method == "POST" and host and host != origin_host:
-                    exfil.append(f"{request.method} {request.url}")
+                    if host not in _BENIGN_POST_DOMAINS:
+                        exfil.append(f"{request.method} {request.url}")
                 elif any(hint in lowered for hint in _EXFIL_HINTS):
                     exfil.append(f"{request.method} {request.url}")
             except Exception:  # noqa: BLE001, S110

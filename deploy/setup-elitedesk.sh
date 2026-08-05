@@ -46,12 +46,18 @@ fi
 # Refresh package databases
 pacman -Sy --noconfirm
 
-# Required official Arch Linux packages
+# Required official Arch Linux packages.
+#
+# podman rather than docker: the analyzer sandbox runs rootless under podman,
+# so the 'outpost' user needs no membership of the 'docker' group. Membership
+# of that group is equivalent to root on the host (you can bind-mount / into a
+# privileged container), and it was previously granted for a sandbox that no
+# code actually launched.
 PACKAGES=(
   postgresql
   python
   python-pip
-  docker
+  podman
   git
   base-devel
   curl
@@ -68,10 +74,19 @@ fi
 pacman -S --needed --noconfirm "${PACKAGES[@]}"
 log_ok "System packages installed successfully."
 
-# Enable & start Docker daemon
-log_info "Enabling and starting docker.service..."
-systemctl enable --now docker.service
-log_ok "Docker daemon is active."
+# ------------------------------------------------------------------------------
+# Chromium renderer sandbox prerequisite
+# ------------------------------------------------------------------------------
+# The deep-triage pool navigates to live attacker infrastructure and executes
+# its JavaScript. Chromium's own sandbox needs unprivileged user namespaces;
+# without them it refuses to start, and the tempting "fix" is --no-sandbox,
+# which removes the only thing standing between a renderer bug and code
+# execution as 'outpost'. Enable the kernel feature instead.
+log_info "Enabling unprivileged user namespaces (Chromium renderer sandbox)..."
+echo 'kernel.unprivileged_userns_clone=1' > /etc/sysctl.d/99-userns.conf
+sysctl -w kernel.unprivileged_userns_clone=1 >/dev/null 2>&1 || \
+  log_warn "kernel.unprivileged_userns_clone not settable on this kernel (may already be default-on)."
+log_ok "Unprivileged user namespaces enabled."
 
 # ------------------------------------------------------------------------------
 # SECTION 2: Create 'outpost' System User
@@ -85,9 +100,25 @@ else
   log_ok "Created system user 'outpost' with home directory /opt/heapleap."
 fi
 
-# Grant Docker group membership to outpost so it can run sandbox containers
-usermod -aG docker outpost
-log_ok "Added 'outpost' to the docker group."
+# NOTE: 'outpost' is deliberately NOT added to the 'docker' group.
+#
+# Docker group membership is root-equivalent — a member can bind-mount / into a
+# privileged container and walk out with the host. It used to be granted here
+# "so it can run sandbox containers", at a time when no code launched a
+# container at all. The analyzer now runs under rootless podman, which needs no
+# group membership and no daemon.
+#
+# If this box previously had the membership, remove it:
+if id -nG outpost 2>/dev/null | grep -qw docker; then
+  gpasswd -d outpost docker >/dev/null 2>&1 || true
+  log_warn "Removed 'outpost' from the docker group (root-equivalent, no longer needed)."
+fi
+
+# Rootless podman needs subuid/subgid ranges for the user.
+if ! grep -q '^outpost:' /etc/subuid 2>/dev/null; then
+  usermod --add-subuids 200000-265535 --add-subgids 200000-265535 outpost
+  log_ok "Allocated subuid/subgid ranges for rootless podman."
+fi
 
 # ------------------------------------------------------------------------------
 # SECTION 3: PostgreSQL Database Setup
@@ -111,13 +142,25 @@ log_ok "postgresql.service is active."
 # Idempotent DB user and database creation
 log_info "Configuring PostgreSQL user 'outpost' and database 'outpost'..."
 
-# Create database user 'outpost' if it doesn't exist
+# Create database user 'outpost' if it doesn't exist.
+#
+# The password is GENERATED, not the literal string 'outpost'. It is written to
+# /opt/heapleap/.pgpassword (mode 0600, owned by outpost) so the operator can
+# paste it into PKINTEL_DB_URL. A guessable database password on a box that
+# also holds the audit log and the work queue is not worth the convenience.
+PGPASS_FILE="/opt/heapleap/.pgpassword"
 USER_EXISTS=$(su - postgres -c "psql -tAc \"SELECT 1 FROM pg_roles WHERE rolname='outpost';\"" || true)
 if [ "$USER_EXISTS" != "1" ]; then
-  su - postgres -c "psql -c \"CREATE USER outpost WITH PASSWORD 'outpost';\""
-  log_ok "PostgreSQL user 'outpost' created."
+  DB_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)"
+  su - postgres -c "psql -c \"CREATE USER outpost WITH PASSWORD '${DB_PASSWORD}';\""
+  mkdir -p /opt/heapleap
+  umask 077
+  printf '%s\n' "$DB_PASSWORD" > "$PGPASS_FILE"
+  chmod 600 "$PGPASS_FILE"
+  log_ok "PostgreSQL user 'outpost' created with a generated password."
+  log_warn "Password written to ${PGPASS_FILE} (mode 0600). Put it in PKINTEL_DB_URL, then delete the file."
 else
-  log_ok "PostgreSQL user 'outpost' already exists."
+  log_ok "PostgreSQL user 'outpost' already exists (password left unchanged)."
 fi
 
 # Create database 'outpost' if it doesn't exist
@@ -139,11 +182,26 @@ log_ok "PostgreSQL privileges granted."
 log_info "4/6 Creating /opt/heapleap directory structure..."
 
 mkdir -p /opt/heapleap/.storage/kits
+mkdir -p /opt/heapleap/.storage/screenshots
 mkdir -p /opt/heapleap/deploy
+# outpost@.service declares these as ReadWritePaths. They are marked optional
+# with a leading '-' so a missing one no longer prevents the unit from starting,
+# but creating them is still the right thing to do.
+mkdir -p /opt/heapleap/logs
+mkdir -p /opt/heapleap/.cache
 
 chown -R outpost:outpost /opt/heapleap
-chmod -R 755 /opt/heapleap
-log_ok "Directory structure created at /opt/heapleap with owner outpost:outpost."
+
+# NOT `chmod -R 755`. That made /opt/heapleap/.env — which holds the SMTP
+# password, the indicator encryption key, the R2 secret and the DB DSN —
+# readable by every local user and every process on the box.
+chmod 750 /opt/heapleap
+chmod 700 /opt/heapleap/.storage
+[ -f /opt/heapleap/.env ] && chmod 600 /opt/heapleap/.env
+for f in /opt/heapleap/.env.*; do
+  [ -f "$f" ] && chmod 600 "$f"
+done
+log_ok "Directory structure created at /opt/heapleap (secrets mode 0600)."
 
 # ------------------------------------------------------------------------------
 # SECTION 5: Python Virtual Environment & Project Dependencies
@@ -172,20 +230,26 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# SECTION 6: Hardened Analyzer Docker Image Build
+# SECTION 6: Hardened Analyzer Sandbox Image
 # ------------------------------------------------------------------------------
-log_info "6/6 Checking Docker analyzer image build..."
+# Built as the 'outpost' user under rootless podman, so the resulting image
+# lives in that user's own store and the analyzer needs no daemon and no
+# privileged group. The analyzer stage will refuse to run without this image.
+log_info "6/6 Building the hardened analyzer sandbox image (rootless podman)..."
 
 if [ -f "/opt/heapleap/analyzer_container/Dockerfile" ]; then
-  log_info "Building hardened sandbox image 'pkintel-analyzer:latest'..."
-  docker build -t pkintel-analyzer:latest -f /opt/heapleap/analyzer_container/Dockerfile /opt/heapleap
-  log_ok "Sandbox analyzer container image built successfully."
+  su - outpost -c "podman build -t pkintel-analyzer:latest \
+      -f /opt/heapleap/analyzer_container/Dockerfile /opt/heapleap" \
+    && log_ok "Sandbox image 'pkintel-analyzer:latest' built." \
+    || log_warn "Sandbox image build failed. The analyzer stage will not run until it succeeds."
 else
-  log_warn "Analyzer Dockerfile not found at /opt/heapleap/analyzer_container/Dockerfile. Build manually after cloning."
+  log_warn "analyzer_container/Dockerfile not found. Clone the repo first, then: make analyzer-image"
 fi
 
-# Ensure permissions after build steps
+# Ensure permissions after build steps (secrets keep their restrictive modes).
 chown -R outpost:outpost /opt/heapleap
+chmod 750 /opt/heapleap
+[ -f /opt/heapleap/.env ] && chmod 600 /opt/heapleap/.env
 
 # ------------------------------------------------------------------------------
 # COMPLETION & NEXT STEPS
@@ -199,23 +263,48 @@ echo "1. Clone / sync repository into /opt/heapleap:"
 echo "   git clone <repo-url> /opt/heapleap"
 echo "   chown -R outpost:outpost /opt/heapleap"
 echo ""
-echo "2. Import the database dump exported from Neon (via export-neon-db.sh):"
-echo "   PGPASSWORD=outpost psql -h localhost -U outpost -d outpost -f /opt/heapleap/deploy/outpost_dump.sql"
+echo "2. Set the DB password from ${PGPASS_FILE} into PKINTEL_DB_URL, then:"
+echo "   shred -u ${PGPASS_FILE}"
 echo ""
-echo "3. Setup environment configuration:"
+echo "3. Import the database dump exported from Neon (via export-neon-db.sh):"
+echo "   psql 'postgresql://outpost:<password>@localhost:5432/outpost' \\"
+echo "        -f /opt/heapleap/deploy/outpost_dump.sql"
+echo ""
+echo "4. Set up environment configuration:"
 echo "   cp /opt/heapleap/deploy/.env.example /opt/heapleap/.env"
-echo "   chown outpost:outpost /opt/heapleap/.env"
-echo "   nano /opt/heapleap/.env  # edit Sentry, Datadog, API keys, SMTP, etc."
+echo "   chown outpost:outpost /opt/heapleap/.env && chmod 600 /opt/heapleap/.env"
+echo "   nano /opt/heapleap/.env   # DB URL, Sentry, SMTP, API keys"
 echo ""
-echo "4. Run database migrations & seed feed sources:"
+echo "   Generate the indicator encryption key (without it, full indicator"
+echo "   values are NOT retained — the pipeline fails closed, by design):"
+echo "     python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+echo "   -> PKINTEL_INDICATOR_ENC_KEY"
+echo ""
+echo "5. Run database migrations & seed feed sources:"
 echo "   su - outpost -c '/opt/heapleap/venv/bin/pkintel db migrate'"
 echo "   su - outpost -c '/opt/heapleap/venv/bin/pkintel db seed'"
 echo ""
-echo "5. Install and start systemd services:"
-echo "   cp /opt/heapleap/deploy/*.service /etc/systemd/system/"
+echo "6. Install systemd units and the per-stage drop-ins:"
+echo "   cp /opt/heapleap/deploy/*.service /opt/heapleap/deploy/*.target /etc/systemd/system/"
+echo "   for f in /opt/heapleap/deploy/stage-env/*.conf; do"
+echo "     s=\$(basename \"\$f\" .conf)"
+echo "     install -Dm644 \"\$f\" \"/etc/systemd/system/outpost@\${s}.service.d/override.conf\""
+echo "   done"
 echo "   systemctl daemon-reload"
-echo "   systemctl enable --now outpost-pipeline.service outpost-api.service outpost-ct.service"
+echo "   systemd-analyze verify /etc/systemd/system/outpost@.service   # must be clean"
 echo ""
-echo "6. Verify active status:"
-echo "   systemctl status outpost-pipeline outpost-api outpost-ct"
+echo "7. Start everything as ONE group:"
+echo "   systemctl enable --now outpost.target"
+echo ""
+echo "   Do NOT also enable outpost-pipeline.service or outpost-ct.service."
+echo "   They run the same stages as the outpost@* units; enabling both means"
+echo "   every stage executes twice and every victim server sees double the"
+echo "   requests. They are marked Conflicts= so systemd will refuse, but the"
+echo "   correct action is to leave them disabled."
+echo ""
+echo "8. Verify:"
+echo "   systemctl status outpost.target"
+echo "   systemctl list-dependencies outpost.target"
+echo "   curl -s localhost:8000/health | jq"
+echo "   curl -s localhost:9101/metrics | head   # triage worker metrics"
 echo "=============================================================================="

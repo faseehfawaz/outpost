@@ -1,20 +1,22 @@
+# DEPRECATED — do not enable.
+#
+# Despite the name this unit ran the *ingest* stage (`pkintel run ingest`), not
+# Certificate Transparency. The result was that a deployment following the old
+# setup instructions ran ingest twice: once here and once inside
+# outpost-pipeline.service.
+#
+# The real CT consumer is outpost-certstream.service (the firehose), and the
+# ingest stage is outpost@ingest.service. Both start with outpost.target.
+#
+#   systemctl disable --now outpost-ct.service
+#   systemctl enable  --now outpost.target
+
 [Unit]
-Description=Outpost Certificate Transparency (CT) Stream Listener Daemon
+Description=Outpost CT listener (DEPRECATED — use outpost-certstream.service)
 Documentation=https://github.com/faseehfawaz/outpost
-After=network.target postgresql.service
-Wants=postgresql.service
+Conflicts=outpost.target
+RefuseManualStart=true
 
 [Service]
-Type=simple
-User=outpost
-Group=outpost
-WorkingDirectory=/opt/heapleap
-EnvironmentFile=/opt/heapleap/.env
-ExecStart=/opt/heapleap/venv/bin/pkintel run ingest --loop --interval 15
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
+Type=oneshot
+ExecStart=/usr/bin/false

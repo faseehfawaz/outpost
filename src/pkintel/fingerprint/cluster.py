@@ -77,14 +77,37 @@ def _load_kits(cur) -> dict[int, dict[str, Any]]:
 
 
 def _load_indicators(cur, kit_ids: set[int]) -> dict[int, list[tuple[str, str]]]:
-    """Return ``{kit_id: [(type, value_hash), ...]}`` for the given kits."""
+    """Return ``{kit_id: [(type, value_hash), ...]}`` for the given kits.
+
+    Scoped to ``kit_ids`` in SQL rather than filtered in Python — the previous
+    version selected the whole table and discarded most of it.
+
+    Do NOT add a time window here. A revision once scoped this to kits analysed
+    in the last 24 hours, which filtered the *evidence* rather than the *work*:
+    ``shared_exfil`` carries weight 1.0 and is one of only two signals the
+    design treats as conclusive, and under that filter two kits using the same
+    Telegram bot only ever linked if both happened to be analysed inside the
+    same rolling day. Campaigns run for weeks, so it removed most of the
+    linking power the actor graph exists for.
+
+    Clustering stays a whole-graph rebuild, and that is deliberate: actors are
+    the *connected components* of the similarity graph, and adding one edge can
+    merge two components that share no kit. You cannot compute that from a
+    slice. The O(n^2) risk lives in bucket fan-out, not in this load, and is
+    handled by ``_MAX_COMMODITY_FILE_BUCKET`` in :func:`_candidate_pairs`. If
+    this stage ever does become the bottleneck, the fix is a seed-and-expand
+    pass over ``kit_edges`` — not a time filter here.
+    """
     out: dict[int, list[tuple[str, str]]] = defaultdict(list)
     if not kit_ids:
         return out
-    cur.execute("SELECT kit_id, type, value_hash FROM indicators")
+    cur.execute(
+        "SELECT kit_id, type, value_hash FROM indicators WHERE kit_id = ANY(%s)",
+        (list(kit_ids),),
+    )
     for r in cur.fetchall():
         kid = r["kit_id"]
-        if kid in kit_ids and r["value_hash"]:
+        if r["value_hash"]:
             out[kid].append((str(r["type"]), str(r["value_hash"])))
     return out
 
@@ -135,7 +158,8 @@ def _candidate_pairs(
     # Strong identity signals: never capped.
     _emit(by_antibot)
     _emit(by_author)
-    _emit(by_exfil)
+    # Exfil signals: capped to avoid combinatorial explosion on popular indicators.
+    _emit(by_exfil, cap=_MAX_COMMODITY_FILE_BUCKET)
     # Commodity files: capped to keep noise/complexity in check.
     _emit(by_file, cap=_MAX_COMMODITY_FILE_BUCKET)
 

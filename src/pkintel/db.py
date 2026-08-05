@@ -167,13 +167,28 @@ def execute_many(sql: str, rows: Sequence[Sequence[Any]]) -> int:
 
 
 # --------------------------------------------------------------------------- reaper
-# (table, state column, busy value, ready value to restore, lease setting name)
-_REAPABLE: tuple[tuple[str, str, str, str, str], ...] = (
-    ("urls", "triage_state", "triaging", "new", "reaper_lease_triage_s"),
-    ("urls", "kithunt_state", "hunting", "pending", "reaper_lease_kithunt_s"),
-    ("kits", "analysis_state", "analyzing", "stored", "reaper_lease_analyze_s"),
-    ("takedowns", "status", "sending", "draft", "reaper_lease_takedown_s"),
-    ("hosts", "enrich_state", "enriching", "pending", "reaper_lease_enrich_s"),
+# (table, state column, busy value, ready value to restore, lease setting,
+#  reap-counter column)
+#
+# The counter column matters: `urls` runs TWO independent state machines
+# (triage and kithunt) over the same row. Sharing one `reap_count` between them
+# meant two triage reaps plus one kithunt reap tripped the poison threshold and
+# parked a perfectly healthy row in 'error' — a stage being flaky poisoned rows
+# for a stage that was fine. Migration 006 adds the split columns; this is what
+# makes them do something.
+_REAPABLE: tuple[tuple[str, str, str, str, str, str], ...] = (
+    ("urls", "triage_state", "triaging", "new", "reaper_lease_triage_s", "reap_count_triage"),
+    (
+        "urls",
+        "kithunt_state",
+        "hunting",
+        "pending",
+        "reaper_lease_kithunt_s",
+        "reap_count_kithunt",
+    ),
+    ("kits", "analysis_state", "analyzing", "stored", "reaper_lease_analyze_s", "reap_count"),
+    ("takedowns", "status", "sending", "draft", "reaper_lease_takedown_s", "reap_count"),
+    ("hosts", "enrich_state", "enriching", "pending", "reaper_lease_enrich_s", "reap_count"),
 )
 
 
@@ -201,21 +216,21 @@ def reap_stuck_rows() -> dict[str, int]:
         return {}
 
     recovered: dict[str, int] = {}
-    for table, col, busy, ready, lease_attr in _REAPABLE:
+    for table, col, busy, ready, lease_attr, count_col in _REAPABLE:
         lease_s = getattr(settings, lease_attr)
         sql = f"""
             UPDATE {table}
             SET {col} = CASE
-                    WHEN reap_count + 1 >= %(max_reaps)s THEN 'error'
+                    WHEN {count_col} + 1 >= %(max_reaps)s THEN 'error'
                     ELSE %(ready)s
                 END,
-                reap_count = reap_count + 1,
+                {count_col} = {count_col} + 1,
                 locked_by = NULL,
                 locked_at = NULL
             WHERE {col} = %(busy)s
               AND locked_at IS NOT NULL
               AND locked_at < now() - make_interval(secs => %(lease)s)
-            RETURNING id, reap_count
+            RETURNING id, {count_col} AS reap_count
         """
         params = {
             "busy": busy,

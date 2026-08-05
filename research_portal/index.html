@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OUTPOST // Security Research & Phishing Kit Observatory</title>
+  <meta name="description" content="Autonomous Phishing Kit Ingestion, Threat Actor Clustering, and Forensic Analysis Research Observatory.">
+  <link rel="stylesheet" href="css/research.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <a href="index.html" class="brand-title">
+      <span>OUTPOST</span>
+      <span class="brand-badge">RESEARCH LAB</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link active">📡 Live Telemetry</a></li>
+      <li><a href="actors.html" class="nav-link">👾 Threat Actors</a></li>
+      <li><a href="kits.html" class="nav-link">📦 Kit Forensics</a></li>
+      <li><a href="takedowns.html" class="nav-link">⚖️ Takedown Hub</a></li>
+    </ul>
+
+    <div class="live-indicator">
+      <div class="pulse-dot"></div>
+      <span>15 FEEDS ACTIVE</span>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- Section Header -->
+    <header class="section-header">
+      <div>
+        <h1 class="section-title">
+          <span style="color: var(--cyan-primary)">//</span> Threat Intelligence & Kit Observatory
+        </h1>
+        <p class="section-subtitle">
+          Autonomous Phishing Ingestion, Heuristic Triage, and Threat Actor Exfiltration Tracking
+        </p>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="exportSTIX()">
+          <span>⚡ Export STIX 2.1 IOC Bundle</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Metrics Cards -->
+    <section class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">
+          <span>Ingested URLs</span>
+          <span style="color: var(--cyan-primary)">15 FEEDS</span>
+        </div>
+        <div class="metric-value" id="stat-total-urls">31,912</div>
+        <div class="metric-subtext">Passive Certificate & Threat Feed Ingestion</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">
+          <span>Confirmed Phishing</span>
+          <span style="color: var(--amber-warning)">TRIAGED</span>
+        </div>
+        <div class="metric-value" id="stat-phish-urls" style="color: var(--amber-warning)">1,876</div>
+        <div class="metric-subtext">Verified malicious pages targeting GCC & Global</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">
+          <span>Kit Archives Captured</span>
+          <span style="color: var(--purple-accent)">QUARANTINED</span>
+        </div>
+        <div class="metric-value" id="stat-kits-collected" style="color: var(--purple-accent)">3</div>
+        <div class="metric-subtext">Static PHP/JS source packages in vault</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">
+          <span>Threat Actor Clusters</span>
+          <span style="color: var(--green-success)">TRACKED</span>
+        </div>
+        <div class="metric-value" id="stat-actors-identified" style="color: var(--green-success)">1</div>
+        <div class="metric-subtext">Grouped by Fernet-decrypted exfil endpoints</div>
+      </div>
+    </section>
+
+    <!-- Main Observatory Grid -->
+    <section class="dashboard-grid">
+
+      <!-- Left Column: Live Telemetry Stream -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">
+            <span>📡 Real-Time Phishing Threat Stream</span>
+          </h2>
+          <div style="font-size: 0.78rem; color: var(--text-dim); font-family: var(--font-mono)">
+            DEFANGED MODE (hXXps://)
+          </div>
+        </div>
+
+        <div class="controls-bar">
+          <input type="text" class="search-input" id="search-input" placeholder="Search by domain, brand (Emirates, Meta, ADCB)..." oninput="loadRecentTriaged()">
+          <select class="filter-select" id="brand-filter" onchange="loadRecentTriaged()">
+            <option value="">All Brands</option>
+            <option value="Emirates">Emirates NBD</option>
+            <option value="Dubai Police">Dubai Police</option>
+            <option value="ADCB">ADCB</option>
+            <option value="Microsoft">Microsoft</option>
+            <option value="Meta">Meta</option>
+          </select>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Defanged Target URL</th>
+                <th>Target Brand</th>
+                <th>Triage Verdict</th>
+                <th>Detected At</th>
+              </tr>
+            </thead>
+            <tbody id="triaged-feed-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right Column: Actor Clusters & Exfiltration Forensics -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem">
+        
+        <!-- Threat Actor Dossier Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <span>👾 Tracked Threat Actors</span>
+            </h2>
+          </div>
+          <div id="actors-list-body">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Research Method Notes -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">
+              <span>🔬 Research Methodology</span>
+            </h2>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.8rem">
+            This research platform passively ingests candidate URLs, runs static & headless Chromium triage, and hunts open directories for exposed kit archives.
+          </p>
+          <div class="code-block">
+# Pipeline Configuration
+INGEST_FEEDS: 15 Active Adapters
+EXFIL_DECRYPTION: Fernet AES-128
+TAKEDOWN_SAFETY: Defanged URLs + Base64
+PROBING_ETHICS: Static only (Max 12 req/host)
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>OUTPOST Security Research Observatory &copy; 2026 // Threat Intelligence Project</p>
+  </footer>
+
+  <script src="js/research.js"></script>
+</body>
+</html>

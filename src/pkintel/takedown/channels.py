@@ -23,11 +23,18 @@ log = get_logger(__name__)
 
 def dispatch_safe_browsing(url: str) -> bool:
     """Dispatch phishing URL report to Google Safe Browsing submission endpoint."""
-    target_api = "https://safebrowsing.google.com/safebrowsing/report_phish/"
+    from pkintel.config import settings
+
+    api_key = getattr(settings, "gsb_api_key", "") or ""
+    if not api_key:
+        log.info("safe_browsing_skipped_no_key", url=url)
+        return False
+    endpoint = f"https://webrisk.googleapis.com/v1/uris:submit?key={api_key}"
+    payload = {"submission": {"uri": url}}
     try:
         with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-            resp = client.post(target_api, data={"url": url, "submit": "Submit Report"})
-            if resp.status_code in (200, 302):
+            resp = client.post(endpoint, json=payload)
+            if resp.status_code in (200, 201, 302):
                 log.info("dispatched_safe_browsing", url=url, status=resp.status_code)
                 return True
             log.warning("safe_browsing_failed", url=url, status=resp.status_code)
@@ -39,10 +46,16 @@ def dispatch_safe_browsing(url: str) -> bool:
 
 def dispatch_phishtank(url: str) -> bool:
     """Dispatch phishing URL to PhishTank submission endpoint."""
+    from pkintel.config import settings
+
+    api_key = getattr(settings, "phishtank_api_key", "") or ""
+    if not api_key:
+        log.info("phishtank_skipped_no_key", url=url)
+        return False
     target_api = "https://www.phishtank.com/add_web_phish.php"
     try:
         with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-            resp = client.post(target_api, data={"url": url, "is_phish": "yes"})
+            resp = client.post(target_api, data={"url": url, "is_phish": "yes", "app_key": api_key})
             if resp.status_code in (200, 302):
                 log.info("dispatched_phishtank", url=url, status=resp.status_code)
                 return True
@@ -55,11 +68,18 @@ def dispatch_phishtank(url: str) -> bool:
 
 def dispatch_netcraft(url: str) -> bool:
     """Dispatch phishing URL to Netcraft report API."""
+    from pkintel.config import settings
+
+    api_key = getattr(settings, "netcraft_api_key", "") or ""
+    if not api_key:
+        log.info("netcraft_skipped_no_key", url=url)
+        return False
     target_api = "https://report.netcraft.com/api/v3/report/urls"
     try:
         payload = {"urls": [{"url": url}]}
+        headers = {"Authorization": f"Bearer {api_key}"}
         with httpx.Client(timeout=10.0) as client:
-            resp = client.post(target_api, json=payload)
+            resp = client.post(target_api, json=payload, headers=headers)
             if resp.status_code in (200, 201, 202):
                 log.info("dispatched_netcraft", url=url, status=resp.status_code)
                 return True
@@ -72,22 +92,9 @@ def dispatch_netcraft(url: str) -> bool:
 
 def dispatch_aecert(url: str, notice_body: str = "") -> bool:
     """Dispatch UAE phishing incident report to aeCERT (incidents@aecert.ae)."""
-    subject = f"[aeCERT Incident Report] Phishing Site Targeting UAE Brands — {url}"
-    body = (
-        f"aeCERT Incident Response Team,\n\n"
-        f"The Outpost threat intelligence pipeline detected an active phishing site targeting UAE users:\n"
-        f"URL: {url}\n\n"
-        f"Report Details:\n{notice_body or 'Phishing website detected targeting UAE financial / public brand.'}\n\n"
-        f"Please initiate UAE regional ISP blocking and mitigation.\n"
-        f"-- Outpost Cyber Defense Suite"
-    )
-    try:
-        send_takedown_email("incidents@aecert.ae", subject, body)
-        log.info("dispatched_aecert", url=url)
-        return True
-    except Exception as e:
-        log.warning("aecert_dispatch_error", url=url, error=str(e))
-        return False
+    # Disabled: incidents@aecert.ae bounces with 550 User Unknown.
+    log.info("aecert_dispatch_disabled", url=url)
+    return False
 
 
 def dispatch_apwg(url: str, evidence: dict[str, Any] | None = None) -> bool:

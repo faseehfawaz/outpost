@@ -33,8 +33,22 @@ from pathlib import Path
 
 import pytest
 
-sqlglot = pytest.importorskip("sqlglot", reason="sqlglot required for schema checking")
+# Hard import, deliberately NOT pytest.importorskip.
+#
+# This used to be `importorskip("sqlglot")` while sqlglot was declared in
+# neither pyproject.toml nor uv.lock — so the whole module skipped in every
+# local run and every CI job, silently, and the suite reported "295 passed,
+# 1 skipped" while covering none of this. A query referencing a non-existent
+# `indicators.created_at` column then shipped and 500'd the public IOC feed:
+# exactly the class of bug this file was written to catch, described in its own
+# docstring above.
+#
+# sqlglot is now a declared dev dependency. If it is missing the suite should
+# FAIL loudly, because the alternative is a guard that quietly guards nothing.
+import sqlglot  # noqa: E402, F401
 from sqlglot import exp  # noqa: E402
+
+_ = pytest  # re-exported below for the fixtures
 
 REPO = Path(__file__).resolve().parents[1]
 MIGRATIONS = REPO / "db" / "migrations"
@@ -291,12 +305,18 @@ def test_migration_003_and_004_columns_applied(schema):
 
 
 def test_reaper_tables_all_have_lock_columns(schema):
-    """reap_stuck_rows() writes locked_by/locked_at/reap_count on each table."""
+    """reap_stuck_rows() writes locked_by/locked_at/<counter> on each table.
+
+    The counter column is per-entry rather than always ``reap_count``: `urls`
+    runs two independent state machines (triage and kithunt) over the same row,
+    and sharing one counter let a flaky stage poison rows on behalf of a stage
+    that was fine.
+    """
     from pkintel.db import _REAPABLE
 
-    for table, state_col, _busy, _ready, _lease in _REAPABLE:
+    for table, state_col, _busy, _ready, _lease, count_col in _REAPABLE:
         assert table in schema, f"reaper targets unknown table `{table}`"
-        for required in ("locked_by", "locked_at", "reap_count", state_col):
+        for required in ("locked_by", "locked_at", count_col, state_col):
             assert required in schema[table], (
                 f"reaper needs {table}.{required} but the migrations do not define it"
             )
