@@ -2,7 +2,7 @@
 
 **Faseeh Padinjarathil**
 Independent Researcher · Dubai, United Arab Emirates
-`security@heapleap.tech` · ORCID: [0009-0000-4874-6459](https://orcid.org/0009-0000-4874-6459)
+`faseeh@heapleap.tech` · ORCID: [0009-0000-4874-6459](https://orcid.org/0009-0000-4874-6459)
 
 **Version 1.0 — August 2026**
 *Technical report. Not peer reviewed.*
@@ -401,7 +401,7 @@ The wider pipeline from which this case study is drawn performs opportunistic co
 | Live pipeline | https://outpost.heapleap.tech |
 | Reproduction script | `paper/reproduce.py` |
 | Regression suite | `tests/test_regressions.py` |
-| Archived software release | *[Zenodo DOI — insert after upload]* |
+| Archived software release | `10.5281/zenodo.21826597` |
 
 ---
 

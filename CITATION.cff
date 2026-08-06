@@ -5,7 +5,7 @@ type: software
 authors:
   - given-names: Faseeh
     family-names: Padinjarathil
-    email: security@heapleap.tech
+    email: faseeh@heapleap.tech
     affiliation: "Independent Researcher"
     orcid: "https://orcid.org/0009-0000-4874-6459"
 repository-code: "https://github.com/faseehfawaz/outpost"
@@ -28,9 +28,9 @@ keywords:
   - ReDoS
   - sandboxing
 license: MIT
-# version: "1.0.0"                                     # <- set at release
-# date-released: "2026-08-06"
-# doi: "10.5281/zenodo.XXXXXXX"                        # <- fill in after Zenodo mints it
+version: "1.0.0"                                     # <- set at release
+date-released: "2026-08-06"
+doi: "10.5281/zenodo.21826597"                        # <- fill in after Zenodo mints it
 
 references:
   - type: report
@@ -43,5 +43,5 @@ references:
         affiliation: "Independent Researcher"
         orcid: "https://orcid.org/0009-0000-4874-6459"
     year: 2026
-    # doi: "10.5281/zenodo.YYYYYYY"                    # <- report DOI (separate from software)
+    doi: "10.5281/zenodo.21826361"
     notes: "Technical report. Not peer reviewed."

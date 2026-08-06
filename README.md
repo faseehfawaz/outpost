@@ -15,16 +15,17 @@ Hunt the kit. Dissect the code. Map the actor. File the takedown.
 <br/>
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.139-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
 [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-107%20passing-22c55e?style=flat-square&logo=pytest&logoColor=white)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-322%20passing-22c55e?style=flat-square&logo=pytest&logoColor=white)](tests/)
 [![Ethical](https://img.shields.io/badge/Passive%20Research%20Only-Ethical%20%26%20Legal-00ff88?style=flat-square)](docs/SCOPE_AND_ETHICS.md)
+[![Report DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21826361.svg)](https://doi.org/10.5281/zenodo.21826361)
+[![Software DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21826597.svg)](https://doi.org/10.5281/zenodo.21826597)
 
 <br/>
 
-[Live Dashboard](https://outpost.heapleap.tech) · [API Reference](https://outpost.heapleap.tech/docs) · [Ethics Policy](docs/SCOPE_AND_ETHICS.md)
+[Live Dashboard](https://outpost.heapleap.tech) · [API Reference](https://outpost.heapleap.tech/docs) · [Ethics Policy](docs/SCOPE_AND_ETHICS.md) · [Research](#research)
 
 </div>
 
@@ -34,7 +35,7 @@ Hunt the kit. Dissect the code. Map the actor. File the takedown.
 
 Most threat-intel tooling stops at the URL. Outpost goes further.
 
-It watches public phishing feeds around the clock, and when a site scores as a confirmed phish, it checks whether the attacker made a common mistake — leaving their source archive exposed in an open directory. If they did, it grabs the zip, seals it in a no-network sandbox, and statically reads every PHP file to find exactly where stolen credentials get sent: a Telegram bot, a Discord webhook, a personal email address.
+It watches public phishing feeds around the clock, and when a site scores as a confirmed phish, it checks whether the attacker made a common mistake — leaving their source archive exposed in an open directory. If they did, it grabs the zip, seals it in a no-network sandbox, and statically reads every PHP file to find exactly where stolen credentials get sent: a Telegram bot, a Discord or Slack webhook, a personal email address.
 
 Those exfil channels are then hashed, clustered against every other kit we have ever seen, and linked to a threat actor profile. A redacted IOC feed goes public. Abuse reports go to the host, the registrar, and the relevant platform. The attacker's infrastructure gets smaller.
 
@@ -206,18 +207,34 @@ pytest tests/ -v
 ```
 
 ```
-tests/test_analyzer.py      ......     (6)   safe_extract, deobfuscate
-tests/test_fingerprint.py   .......   (23)   similarity, clustering, union-find
-tests/test_ingest.py        .......   (47)   all feed adapters, normalization
-tests/test_kithunter.py     ......     (6)   paths, open-dir, archive detection
-tests/test_redact.py        ..         (2)   redaction, hashing
-tests/test_takedown.py      .....      (5)   RDAP, templates
-tests/test_triage.py        ......    (18)   brand, score, forms, favicon
-
-107 passed in 0.31s
+322 passed
 ```
 
-Zero tests make network calls. All external dependencies are mocked.
+237 test functions across 23 files. Zero make network calls — all external
+dependencies are mocked. Notable suites:
+
+- `tests/test_regressions.py` — 16 tests pinning specific defects that shipped, including three that assert **wall-clock complexity** (a doubled input must not more than 2.5× the time), so an algorithmic-complexity regression fails CI.
+- `tests/test_schema_consistency.py` — parses every SQL literal in the source and validates it against the migrations, with no database.
+
+---
+
+## Research
+
+This system is also the subject of a security research report:
+
+**The Analyser Is the Target: Adversarial Inputs Against Phishing-Kit Analysis Pipelines.**
+*Technical report, 2026. Under submission to IEEE SPW 2027.*
+DOI: *[Zenodo — pending upload]*
+
+A phishing-kit analyser parses input the adversary wrote, by construction. The report presents four remotely-triggerable availability defects found and fixed in this codebase — exponential and quadratic regex backtracking, an unenforceable timeout, and unbounded decompression — and argues that a documented security guarantee not asserted by a test is a guarantee you do not have.
+
+Every measurement is reproducible:
+
+```bash
+python3 paper/reproduce.py            # regenerates every table, no network, no deps
+```
+
+See [`paper/`](paper/) for the report, the reproduction script, and the coordinated-disclosure kit.
 
 ---
 
