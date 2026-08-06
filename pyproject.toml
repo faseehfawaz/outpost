@@ -45,6 +45,8 @@ dependencies = [
     # super-linear one. Import is optional at runtime — absence only removes
     # the backstop.
     "regex>=2024.5",
+    "playwright",
+    "sqlglot",
 ]
 
 [project.optional-dependencies]

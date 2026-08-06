@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+title: "Outpost: a phishing-kit intelligence pipeline"
+message: "If you use this software or the accompanying technical report, please cite them as below."
+type: software
+authors:
+  - given-names: Faseeh
+    family-names: Padinjarathil
+    email: security@heapleap.tech
+    affiliation: "Independent Researcher"
+    orcid: "https://orcid.org/0009-0000-4874-6459"
+repository-code: "https://github.com/faseehfawaz/outpost"
+url: "https://outpost.heapleap.tech"
+abstract: >-
+  A continuously-running phishing-kit intelligence pipeline. Ingests candidate
+  URLs from public feeds and Certificate Transparency logs, triages them for
+  brand impersonation with static and headless-browser signals, opportunistically
+  collects exposed kit archives, statically dissects them inside a hardened
+  container to recover exfiltration channels, clusters kits and infrastructure
+  into actor profiles, and files abuse reports. UAE and GCC brands are
+  prioritised. All collection is passive and rate-limited in code.
+keywords:
+  - phishing
+  - threat intelligence
+  - phishing kits
+  - certificate transparency
+  - malware analysis
+  - static analysis
+  - ReDoS
+  - sandboxing
+license: MIT
+# version: "1.0.0"                                     # <- set at release
+# date-released: "2026-08-06"
+# doi: "10.5281/zenodo.XXXXXXX"                        # <- fill in after Zenodo mints it
+
+references:
+  - type: report
+    title: >-
+      The Analyser Is the Target: Adversarial Inputs Against Phishing-Kit
+      Analysis Pipelines
+    authors:
+      - given-names: Faseeh
+        family-names: Padinjarathil
+        affiliation: "Independent Researcher"
+        orcid: "https://orcid.org/0009-0000-4874-6459"
+    year: 2026
+    # doi: "10.5281/zenodo.YYYYYYY"                    # <- report DOI (separate from software)
+    notes: "Technical report. Not peer reviewed."
